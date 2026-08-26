@@ -1,0 +1,205 @@
+void beamSolverOLD(BeamElement* bars,int num_bars,Node* nodes,int num_nodes,int* result_size){
+  //TODO: INITIALIZE THE GLOBAL STIFNESS MATRIX
+  int num_dofs = 6;
+  int K_global_w = (num_dofs*num_nodes);
+  int K_global_h = (num_dofs*num_nodes);
+  float** K_global = (float**)malloc(sizeof(float*)*K_global_h);
+  for(int y=0;y<K_global_h;y++){
+    K_global[y] = (float*)calloc(K_global_w,sizeof(float));
+  }
+  //TODO: INITIALIZE THE LOAD VECTOR
+  int Lh = num_dofs*num_nodes;
+  float*L = (float*)calloc(Lh,sizeof(float));
+  
+  for(int i=0;i<num_bars;i++){
+    //NOTE: CREATE FORM FUNCTIONS
+    int Nw =0,Nh =0;
+    bars[i].N = createBeamFormMatrixes(&(bars[i]),&(bars[i].Nw),&(bars[i].Nh));
+    printf("N matrix : \n");
+    printFormFunctionMat( bars[i].N,(bars[i].Nw),(bars[i].Nh));
+
+    //NOTE: CREATE B MATRIX
+    int Bw = bars[i].Nw,Bh = bars[i].Nh;
+    bars[i].B = createBMatrixe(&(bars[i]),bars[i].N,Bw,Bh);
+    printf("B matrix : \n");
+    printFormFunctionMat( bars[i].B,(bars[i].Nw),(bars[i].Nh));
+
+    //NOTE: CREATE ELEMENT LOCAL STIFFNESS MATRIX
+    int Kew,Keh;
+    bars[i].Ke = createStiffnesMatrix(&(bars[i]),bars[i].B,Bw,Bh,&(bars[i].Kew),&(bars[i].Keh));
+    Kew = (bars[i].Kew);
+    Keh = (bars[i].Keh);
+
+    //NOTE: CREATE ELEMENT TRANSFORMATION MATRIX
+    int Tw,Th;
+    float** T = TMatrix(nodes,&(bars[i]),&Tw,&Th);
+    printf("T matrix : \n");
+    printMat(T,Tw,Th);
+
+    int Ttw = 0,Tth = 0;
+    float** Tt = transposeMat(T,Tw,Th,&Tth,&Ttw);
+    printf("Tt matrix : \n");
+    printMat(Tt,Ttw,Tth);
+    
+    int m1h,m1w;
+    float** m1 =  multmat(Tt,Ttw,Tth,bars[i].Ke,Kew,Keh,&m1h,&m1w);
+    printf("m1 matrix : \n");
+    printMat(m1,m1w,m1h);
+
+    //NOTE: GET ELEMENT GLOBAL STIFFNESS MATRIX
+    int Kgw,Kgh;
+    float** Kg = multmat(m1,m1w,m1h,T,Tw,Th,&Kgh,&Kgw);
+    printf("Kg matrix : \n");
+    printMat(Kg,Kgw,Kgh);
+    
+    //NOTE: ASSEMBLE ELEMENT'S GLOBAL STIFFNESS MATRIX INTO THE MODEL GLOBAL STIFFNESS MATRIX
+    assemble(K_global,K_global_w,K_global_h,Kg,Kgh,Kgw,bars[i].node1,bars[i].node2,num_dofs);
+
+    //FREE
+    for(int y=0;y<Kgh;y++){
+      free(Kg[y]);
+    }
+    free(Kg);
+
+    for(int y=0;y<m1h;y++){
+      free(m1[y]);
+    }
+    free(m1);
+
+    for(int y=0;y<Tth;y++){
+      free(Tt[y]);
+    }
+    free(Tt);
+
+    //NOTE: ADD THE ELEMENT LOAD TODO: AUTOMATE THIS FOR MULTIPLE ELEMENTS
+    addTestLoadV(&(bars[i]),num_bars,num_nodes,L,Lh);
+  }
+  
+  printf("K_global matrix : \n");
+  printMat(K_global,K_global_w,K_global_h);
+
+  //TODO: add boundary conditions (modify Global K)
+  //NOTE: for now,(and yes still with the hardcoded shit) i will assume node 0 is fixed (encastrement)
+  int num_fixed = 1;
+  int fixed_node = 0;
+  int node_start = fixed_node*num_dofs;
+  int reducted_w ,reducted_h ;
+  float** K_reducted = getReductedK(K_global,K_global_w,K_global_h,node_start,num_fixed,num_nodes,&reducted_w,&reducted_h);
+  float* L_reducted = getLReducted(L,Lh,node_start,num_fixed,num_nodes,&reducted_h);
+ 
+  printf("K_reduced matrix : \n");
+  printMat(K_reducted,reducted_w,reducted_h);
+
+  printf("L  : \n");
+  printf("{");
+  for(int i=0;i<Lh;i++){
+    printf(" %f",L[i]);
+  }
+  printf("}\n");
+
+  printf("L reducted : \n");
+  printf("{");
+  for(int i=0;i<reducted_h;i++){
+    printf(" %f",L_reducted[i]);
+  }
+  printf("}\n");
+  //NOTE: now we have the K and F (HOPEFULLY) and redcuted (ALSO HOPEFULLY), so we just get a,the displacement (is it global or local...i guess global)
+  *result_size = reducted_h;
+  float* Solved = (float*)calloc(reducted_h,sizeof(float));
+  gauss_eliminate(K_reducted,L_reducted,Solved,reducted_w,reducted_h);//K*U = F;
+  //TODO: now "Solved" has the displacements
+  
+  printf("Result : \n");
+  printf("{");
+  for(int i=0;i<reducted_h;i++){
+    printf(" %f",Solved[i]);
+  }
+  printf("}\n");
+
+  int Global_dis_h = K_global_h;
+  float* Global_Displacements = (float*)calloc(sizeof(float),Global_dis_h);
+  int G_idx = 0,S_idx = 0;
+  for(int y=0;y<K_global_h;y++){
+    if(y>=node_start && y<node_start+num_dofs){
+      G_idx++;
+      continue;
+    }
+    Global_Displacements[G_idx++] = Solved[S_idx++];
+  }
+
+  printf("Global Displacements : \n");
+  printf("{");
+  for(int i=0;i<Global_dis_h;i++){
+    printf(" %f",Global_Displacements[i]);
+  }
+  printf("}\n");
+  
+
+  //TODO: now for each element,we comput it's local displacements and then it's F vector to get STRESS RESULTANTS
+  for(int i=0;i<num_bars;i++){
+    int Tw,Th;
+    float** T = TMatrix(nodes,&(bars[i]),&Tw,&Th);
+    int temp_size = 6*2;
+    float* temp = (float*)calloc(sizeof(float),temp_size);
+    int node1 = bars[i].node1;
+    int node2 = bars[i].node2;
+    int temp_idx = 0;
+    for(int j=node1*6;j<node1*6+6;j++){
+      temp[temp_idx++] = Global_Displacements[j];
+    }
+    for(int j=node2*6;j<node2*6+6;j++){
+      temp[temp_idx++] = Global_Displacements[j];
+    }
+    //NOTE: now temp has his element's 12 dofs from the full global displacement vector
+    bars[i].local_dis_size = temp_size;
+    bars[i].local_dis =  mulMatVec(T,Tw,Th,temp,temp_size,&(bars[i].local_dis_size));
+    printf("element %d local displacements: \n",i);
+    printf("{");
+    for(int k=0;k<bars[i].local_dis_size;k++){
+      printf(" %f",bars[i].local_dis[k]);
+    }
+    printf("}\n");
+
+    //NOTE: the local forces
+    bars[i].local_forces = mulMatVec(bars[i].Ke,bars[i].Kew,bars[i].Keh,bars[i].local_dis,bars[i].local_dis_size,&(bars[i].local_forces_size));
+
+    printf("element %d local forces: \n",i);
+    printf("{");
+    for(int k=0;k<bars[i].local_forces_size;k++){
+      printf(" %f",bars[i].local_forces[k]);
+    }
+    printf("}\n");
+
+    
+    free(temp);
+    for(int y=0;y<Th;y++){
+      free(T[y]);
+    }
+    free(T);
+  }
+
+  printf("Bar 1 vertical displacement results : \n");
+  float pos = 0.0,step = 0.1;
+  float v1 = bars[0].local_dis[1];
+  float theta_z1 = bars[0].local_dis[5];
+  float v2 = bars[0].local_dis[7];
+  float theta_z2 = bars[0].local_dis[11];
+  while(pos <= bars[0].Le){
+    float v = get_v_displacement(&(bars[0]),pos,v1,theta_z1,v2,theta_z2);
+    printf("pos = %f : %.6f  ",pos,v);
+    pos+=step;
+  }
+  float v = get_v_displacement(&(bars[0]),2.0,v1,theta_z1,v2,theta_z2);
+  printf("pos = 2.0 : %.6f  ",v);
+
+  //NOTE: get reactions
+  int reactions_h = 0;
+  float* F_Reactions = mulMatVec(K_global,K_global_w,K_global_h,Global_Displacements,Global_dis_h,&reactions_h);
+  printf("REACTIONS : \n");
+  printf("{ ");
+  for(int i=0;i<reactions_h;i++){
+    printf("%f ,",F_Reactions[i]-L[i]);
+  }
+  printf(" }");
+  //return NULL;
+}

@@ -1,0 +1,180 @@
+#include "fea_types.h"
+
+void printFormFunc(FormFunc F){
+  printf("{ ");
+  for(int i=0;i<F.size;i++){
+    printf("%6f ",F.n[i]);
+  }
+  printf(" }");
+}
+void printFormFunctionMat(FormFunc** F,int w,int h){
+  for(int y=0;y<h;y++){
+    printf("row %d \n",y);
+    for(int x=0;x<w;x++){
+      printFormFunc(F[y][x]);
+      printf("\n");
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+
+
+void fillNi(FormFunc* F,float* values,int values_size){
+  for(int i=0;i<values_size;i++){
+    if(i>= F->size){
+      return;
+    }
+    F->n[i] = values[i];
+  }
+}
+
+void negateFormi(FormFunc* F){
+  for(int i=0;i<F->size;i++){
+    F->n[i]*=-1;
+  }
+}
+
+
+FormFunc** createBeamFormMatrixes(BeamElement* bar,int* w,int* h){
+  *w = 12;//TODO: calculate,don't hardcode
+  *h = 4;//TODO: calculate,don't hardcode
+  FormFunc** result = (FormFunc**)malloc(sizeof(FormFunc*)*(*h));
+  for(int y=0;y<(*h);y++){
+    result[y] = (FormFunc*)malloc(sizeof(FormFunc)*(*w));
+    for(int x=0;x<(*w);x++){
+      result[y][x].size = 4;
+      result[y][x].n = (float*)malloc(sizeof(float)*result[y][x].size);
+      memset(result[y][x].n,0,sizeof(float)*4);
+    }
+  }
+  float L = bar->Le;
+  float N1l[4] = {1.0, -1.0, 0.0, 0.0};
+  float N2l[4] = {0.0, 1.0, 0.0, 0.0};
+  float N1c[4] = {1.0, 0.0, -3.0, 2.0};
+  float N2c[4] = {0.0, L,-(float)2.0*L, L};
+  float N3c[4] = {0.0, 0.0, 3.0, -2.0};
+  float N4c[4] = {0.0, 0.0, -L, L};
+  fillNi(&result[0][0],&(N1l[0]), 4);
+  fillNi(&result[3][3],&(N1l[0]), 4);
+  fillNi(&result[0][6],&(N2l[0]), 4);
+  fillNi(&result[3][9],&(N2l[0]), 4);
+  fillNi(&result[1][1],&(N1c[0]), 4);
+  fillNi(&result[2][2],&(N1c[0]), 4);
+  fillNi(&result[2][4],&(N2c[0]), 4);
+  negateFormi(&result[2][4]);
+  fillNi(&result[1][5],&(N2c[0]), 4);
+  fillNi(&result[1][7],&(N3c[0]), 4);
+  fillNi(&result[2][8],&(N3c[0]), 4);
+  fillNi(&result[2][10],&(N4c[0]), 4);
+  negateFormi(&result[2][10]);
+  fillNi(&result[1][11],&(N4c[0]), 4);
+  return result;
+}
+
+FormFunc* mulMatVecF(FormFunc** a, int ah, int aw,
+                    FormFunc* b, int bh, int* h)
+{
+    if (aw != bh) {
+        *h = 0;
+        return NULL;
+    }
+
+    *h = ah;
+
+    FormFunc* result = calloc(*h, sizeof(FormFunc));
+
+    for (int y = 0; y < ah; y++) {
+
+        result[y].size = a[y][0].size + b[0].size - 1;
+        result[y].n = calloc(result[y].size, sizeof(float));
+
+        for (int x = 0; x < aw; x++) {
+
+            // Polynomial multiplication (convolution)
+            for (int i = 0; i < a[y][x].size; i++) {
+                for (int j = 0; j < b[x].size; j++) {
+                    result[y].n[i + j] +=
+                        a[y][x].n[i] * b[x].n[j];
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+void scaleFormFunc(FormFunc* F,float j){
+  for(int i=0;i<F->size;i++){
+    F->n[i] *= j;
+  }
+}
+
+float my_expf(float num, int pow){
+  float result = 1.0f;
+  for(int i=0;i<pow;i++){
+    result *= num;
+  }
+  return result;
+}
+
+float my_expf2(float num,int pow){
+  if (pow == 0) return 1.0f;
+  float result = num;
+  for(int i=0;i<pow;i++){
+    result*=num;
+  }
+  return result;
+}
+
+float getFormValue(FormFunc F,float f){
+  float result = 0.0;
+  for(int i=0;i<F.size;i++){
+    result += F.n[i]*my_expf(f,i);
+  }
+  return result;
+}
+
+FormFunc* deriveX(FormFunc F){
+  FormFunc* result = (FormFunc*)malloc(sizeof(FormFunc));
+  result->size = F.size;
+  result->n = (float*)malloc(sizeof(float)*result->size);
+  for(int i=1;i<result->size;i++){
+    result->n[i-1] = i*F.n[i];
+  }
+  result->n[result->size-1] = 0.0;
+  return result;
+}
+
+FormFunc* deriveX2(FormFunc F){
+  FormFunc* result = (FormFunc*)malloc(sizeof(FormFunc));
+  result->size = F.size;
+  result->n = (float*)malloc(sizeof(float)*result->size);
+  for(int i=2;i<result->size;i++){
+    result->n[i-2] = i*(i-1)*F.n[i];
+  }
+  result->n[result->size-1] = 0.0;
+  result->n[result->size-2] = 0.0;
+  return result;
+}
+
+
+
+float integrateX(FormFunc F,float x1,float x2){
+  float sum = 0.0f;
+  float x1_pow = x1,x2_pow = x2;
+  for(int i=0;i<F.size;i++){
+    sum+=F.n[i]/(i+1)*(x2_pow-x1_pow);
+    x1_pow *= x1;
+    x2_pow *= x2;
+  }
+  return sum;
+}
+
+void copyNi(FormFunc* src,FormFunc* dst){
+  dst->size = src->size;
+  for(int i=0;i<dst->size;i++){
+    dst->n[i] = src->n[i];
+  }
+}

@@ -1,0 +1,40 @@
+project/
+├── CMakeLists.txt
+│
+├── src/
+│   ├── core/
+│   │   ├── log.c / .h
+│   │   └── file.c / .h
+│   │
+│   ├── platform/
+│   │   └── window.c / .h
+│   │
+│   ├── vk/
+│   │   └── ... (unchanged)
+│   │
+│   ├── renderer/
+│   │   ├── renderer.c / .h
+│   │   ├── mesh.c / .h
+│   │   └── vis.c / .h        ← NEW: reads VisModel, builds GPU meshes
+│   │
+│   ├── fea/                  ← NEW: pure C, zero Vulkan dependency
+│   │   ├── fea_types.h       ← Node, Element, Material, Section structs
+│   │   ├── matrix.c / .h     ← mat mul, transpose, gauss solve
+│   │   ├── shape.c / .h      ← N, B, D functions per element type
+│   │   ├── element.c / .h    ← Ke, T, assembly per element type
+│   │   ├── solver.c / .h     ← global K assembly, BC, Ku=f solve
+│   │   ├── recovery.c / .h   ← local forces, stress, interpolation
+│   │   └── fea.h             ← single include for everything in fea/
+│   │
+│   ├── vis/                  ← NEW: bridge between fea and renderer
+│   │   ├── vis_types.h       ← VisModel, VisElement, VisNode structs
+│   │   └── vis_builder.c/.h  ← takes FEA output, builds VisModel
+│   │
+│   └── app/
+│       └── main.c
+│
+├── shaders/
+│   └── ...
+│
+└── assets/
+    └── models/               ← NEW: your input files (.json or custom)

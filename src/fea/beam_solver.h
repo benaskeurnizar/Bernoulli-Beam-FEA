@@ -1,0 +1,7 @@
+#pragma once
+
+#include "fea_types.h"
+#include "../graphics/graphics.h"
+
+void beamSolver(World* world);
+void createElemetsDisLoad(World* world);

@@ -1,0 +1,10 @@
+#pragma once
+
+typedef struct{
+  VkSemaphore* image_available;
+  uint32_t availableCount;
+  VkSemaphore* render_finished;
+  uint32_t finishedCount;
+  VkFence* in_flight;
+  uint32_t in_flightCount;
+}VkSyncCtx;

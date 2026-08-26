@@ -1,0 +1,8 @@
+#pragma once
+
+typedef struct{
+  VkPhysicalDevice physicalDevice;
+  VkDevice device;
+  VkQueue graphicsQueue;
+  VkQueue presentQueue;
+}VkDeviceCtx;

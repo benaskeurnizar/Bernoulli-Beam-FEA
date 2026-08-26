@@ -1,0 +1,52 @@
+#include "fea_types.h"
+#include "../graphics/graphics.h"
+#include "../parser/parse_fea.h"
+
+
+
+float** createDMatrix(Material* mat, Section* sec,int* w,int* h){
+  *w = 4;
+  *h = 4;
+  float** D = (float**)malloc(sizeof(float*)*(*h));
+  for(int i=0;i<(*h);i++){
+    D[i] = (float*)malloc(sizeof(float)*(*w));
+    memset(D[i],0,sizeof(float)*(*w));
+  }
+  float G = mat->E/(2.0*(1+mat->v));
+  D[0][0] = mat->E*sec->A;
+  D[1][1] = G*sec->J;
+  D[2][2] = mat->E*sec->Iz;
+  D[3][3] = mat->E*sec->Iy;
+
+  return D;
+}
+
+void initFea(World* world){//TODO: Creates nodes, sections,materials,loads... and bar element
+  parseFea(world,"../assets/sample.txt");
+
+  for(int i=0;i<world->num_beam_elements;i++){
+    int sec_id = world->beams[i].sec_id;
+    int mat_id = world->beams[i].mat_id;
+    int node1 = world->beams[i].node1;
+    int node2 = world->beams[i].node2;
+    world->beams[i].D = createDMatrix(&(world->materials[mat_id]),&(world->sections[sec_id]),&(world->beams[i].dw),&(world->beams[i].dh));
+
+    float x1 = world->nodes[node1].x;
+    float x2 = world->nodes[node2].x;
+    float y1 = world->nodes[node1].y;
+    float y2 = world->nodes[node2].y;
+    float z1 = world->nodes[node1].z;
+    float z2 = world->nodes[node2].z;
+    world->beams[i].Le = sqrtf(pow(x2-x1,2)+pow(y2-y1,2)+pow(z2-z1,2));
+  }
+ 
+}
+
+
+
+
+
+
+
+//TODO: check for 0 Ns (make sure it's always handeled)
+//TODO: double check everything

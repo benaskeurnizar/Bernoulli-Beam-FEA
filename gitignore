@@ -1,0 +1,21 @@
+# Editor backups
+*~
+*.swp
+*.swo
+
+# Build output
+build/
+*.pdb
+*.ilk
+*.exe
+*.exp
+*.lib
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.vscode/
+*.user

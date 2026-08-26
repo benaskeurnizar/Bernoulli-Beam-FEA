@@ -1,0 +1,194 @@
+#include "fea_types.h"
+#include <stdlib.h>
+
+
+float** multmat(float** a,int wa,int ha,float** b,int wb,int hb,int* hr,int* wr){
+  *hr = ha;
+  *wr = wb;
+  float** result = (float**)malloc(sizeof(float*)*(*hr));
+  for(int y=0;y<(*hr);y++){
+    result[y] = (float*)calloc(*wr,sizeof(float));
+    for(int x=0;x<(*wr);x++){
+      for(int i=0;i<wa;i++){
+	result[y][x] += a[y][i]*b[i][x];
+      }
+    }
+  }
+  return result;
+}
+
+float** transposeMat(float** b,int wb,int hb,int* hr,int* wr){
+  *hr = wb;
+  *wr = hb;
+  float** result = (float**)malloc(sizeof(float*)*(*hr));
+  for(int y=0;y<(*hr);y++){
+    result[y] = (float*)calloc(*wr,sizeof(float));
+    for(int x=0;x<(*wr);x++){
+      result[y][x] = b[x][y];
+    }
+  }
+  return result;
+}
+
+void addFormFuncs(FormFunc* a,FormFunc* b,FormFunc* dst){
+  int size = a->size > b->size ? a->size : b->size ;
+  if(size>dst->size){
+    dst->n = (float*)realloc(dst->n,size*sizeof(float));
+  }
+  for(int i=0;i<size;i++){
+    float af = i>=a->size ? 0.0 : a->n[i];
+    float bf = i>=b->size ? 0.0 : b->n[i];
+    dst->n[i] = af+bf;
+  }
+  dst->size = size;
+}
+
+FormFunc* mulForFuncs(FormFunc* a,FormFunc* b){
+  FormFunc* result = (FormFunc*)malloc(sizeof(FormFunc));
+  result->size = a->size+b->size - 1;
+  result->n = (float*)calloc((result->size),sizeof(float));
+  for(int i=0;i<a->size;i++){
+    for(int j=0;j<b->size;j++){
+      result->n[i+j] += a->n[i]*b->n[j];
+    }
+  }
+  return result;
+}
+
+FormFunc* scaleForFuncs(FormFunc* a,float b){
+  FormFunc* result = (FormFunc*)malloc(sizeof(FormFunc));
+  result->size = a->size;
+  result->n = (float*)calloc((result->size),sizeof(float));
+  for(int i=0;i<a->size;i++){
+    result->n[i] += a->n[i]*b;
+  }
+  return result;
+}
+
+FormFunc** multmatForm(FormFunc** a,int wa,int ha,FormFunc** b,int wb,int hb,int* hr,int* wr){
+  if(wa != hb){
+    *hr = 0;
+    *wr = 0;
+    return NULL;
+  }
+  *hr = ha;
+  *wr = wb;
+  FormFunc** result = (FormFunc**)malloc(sizeof(FormFunc*)*(*hr));
+  for(int y=0;y<(*hr);y++){
+    result[y] = (FormFunc*)malloc(sizeof(FormFunc)*(*wr));
+    for(int x=0;x<(*wr);x++){
+      int maxSize = 1;
+      for(int i=0;i<wa;i++){
+	int termSize = a[y][i].size+b[i][x].size-1;
+	if(termSize > maxSize){
+	  maxSize = termSize;
+	}
+      }
+      result[y][x].size = maxSize;
+      result[y][x].n = (float*)calloc(result[y][x].size,sizeof(float));
+      for(int i=0;i<wa;i++){
+	//result[y][x] += a[y][i]*b[i][x];
+	FormFunc* mult = mulForFuncs(&(a[y][i]),&(b[i][x]));
+	addFormFuncs(&(result[y][x]),mult,&(result[y][x]));
+	free(mult->n);
+	free(mult);
+      }
+    }
+  }
+  return result;
+}
+
+FormFunc** multmatForm_scale(FormFunc** a,int wa,int ha,float** b,int wb,int hb,int* hr,int* wr){
+  *hr = ha;
+  *wr = wb;
+  FormFunc** result = (FormFunc**)malloc(sizeof(FormFunc*)*(*hr));
+  for(int y=0;y<(*hr);y++){
+    result[y] = (FormFunc*)malloc(sizeof(FormFunc)*(*wr));
+    for(int x=0;x<(*wr);x++){
+      int maxSize = 1;
+      for(int i=0;i<wa;i++){
+	int termSize = a[y][i].size;
+	if(termSize > maxSize){
+	  maxSize = termSize;
+	}
+      }
+      result[y][x].size = maxSize;
+      result[y][x].n = (float*)calloc(result[y][x].size,sizeof(float));
+      for(int i=0;i<wa;i++){
+	//result[y][x] += a[y][i]*b[i][x];
+	FormFunc* scale = scaleForFuncs(&(a[y][i]),(b[i][x]));
+	addFormFuncs(&(result[y][x]),scale,&(result[y][x]));
+	free(scale->n);
+	free(scale);
+      }
+    }
+  }
+  return result;
+}
+FormFunc* mulFormFunc_vec(FormFunc a, float* b, int wb){
+    FormFunc* result = calloc(1, sizeof(FormFunc));
+
+    result->size = a.size;
+    result->n = calloc(result->size, sizeof(float));
+
+    // b is the load vector [qx, qy, qz].
+    // For a selected load direction, only b[N_idx] is nonzero.
+    float load = b[wb];  // wb = N_idx
+
+    for(int i = 0; i < a.size; i++){
+        result->n[i] = a.n[i] * load;
+    }
+
+    return result;
+}
+FormFunc* mulFormFunc_vec2(FormFunc a,float* b,int wb){
+  FormFunc* result = (FormFunc*)calloc(1,sizeof(FormFunc));
+  int size = wb;
+  result->n = (float*)calloc(size,sizeof(float));
+  result->size = size;
+  for(int i=0;i<wb;i++){
+    result->n[i] = a.n[i]*b[i];
+  }
+  return result;
+}
+
+FormFunc** transposeMatForm(FormFunc** b,int wb,int hb,int* hr,int* wr){
+  *hr = wb;
+  *wr = hb;
+  FormFunc** result = (FormFunc**)malloc(sizeof(FormFunc*)*(*hr));
+  for(int y=0;y<(*hr);y++){
+    result[y] = (FormFunc*)malloc(sizeof(FormFunc)*(*wr));
+    for(int x=0;x<(*wr);x++){
+      result[y][x].size = b[x][y].size;
+      result[y][x].n = (float*)calloc(result[y][x].size,sizeof(float));
+      memcpy(result[y][x].n,b[x][y].n,sizeof(float)*result[y][x].size);
+    }
+  }
+  return result;
+}
+
+float* mulMatVec(float** mat,int mw,int mh,float* vec,int vh,int* h){
+  *h = vh;
+  float* result = (float*)calloc(*h,sizeof(float));
+  for(int y=0;y<vh;y++){
+    float sum = 0.0;
+    for(int x=0;x<mw;x++){
+      sum+= mat[y][x]*vec[x];
+    }
+    result[y] = sum;
+  }
+  return result;
+}
+
+void printMat(float** F,int w,int h){
+  for(int y=0;y<h;y++){
+    printf("{");
+    for(int x=0;x<w;x++){
+      printf("%4f",F[y][x]);
+      printf(" ");
+    }
+    printf("}");
+    printf("\n");
+  }
+  printf("\n");
+}
