@@ -1,4 +1,0 @@
-#pragma once
-
-point2D* createCircleOutline(float raduis,float deltaDed,int* count);
-point2D* createRectOutline(float width, float height, int segPerEdge, int* count);

@@ -1,6 +1,0 @@
-#pragma once
-
-#include "fea_types.h"
-
-
-void initFea(World* world);
