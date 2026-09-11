@@ -188,7 +188,38 @@ float get_Mz(BeamElement* bar,float position,float E,float Iz){
   return result*EI;
 }
 
-float* getSectionStress(World* world,BeamElement* beam,float position,int* size){
+float integrate_dis_load(Load* force,float bound){
+  FormFunc w;
+  w.n = (float*)calloc(3,sizeof(float));
+  w.size = 3;
+  w.n[0] = force->x;
+  w.n[1] = force->y;
+  w.n[2] = force->z;
+
+  return integrateX(w,0.0,bound);
+}
+
+float calculate_Vy_integral(FeaModel* model,BeamElement* beam,float bound){
+  float result = 0.0;
+  for(int i=0;i<model->num_forces;i++){
+    if(model->forces[i].type == FORCE_DIS_Y && model->forces[i].element_id == beam->element_id){
+      result += integrate_dis_load(&(model->forces[i]),bound)*beam->Le;
+    }
+  }
+  return result;
+}
+
+float calculate_Vz_integral(FeaModel* model,BeamElement* beam,float bound){
+  float result = 0.0;
+  for(int i=0;i<model->num_forces;i++){
+    if(model->forces[i].type == FORCE_DIS_Z && model->forces[i].element_id == beam->element_id){
+      result += integrate_dis_load(&(model->forces[i]),bound)*beam->Le;
+    }
+  }
+  return result;
+}
+
+float* getSectionStress(FeaModel* model,BeamElement* beam,float position,int* size){
   //NOTE: Calculate the beam's generalized strains at x
   int e_count = 4;
   float* E = (float*)calloc(e_count,sizeof(float));
@@ -203,14 +234,14 @@ float* getSectionStress(World* world,BeamElement* beam,float position,int* size)
   int s_count = 4;
   float* S =  mulMatVec(beam->D,beam->dw,beam->dh,E,e_count,&s_count);
 
-  Section section = world->sections[beam->sec_id];
-  Material material = world->materials[beam->mat_id];
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
   float N = S[0];
   float T = S[1];
   float My = S[2];
   float Mz = S[3];
-  float Vy = (1.0f - position) * beam->local_forces[1] + position * beam->local_forces[7];
-  float Vz = (1.0f - position) * beam->local_forces[2] + position * beam->local_forces[8];
+  float Vy = beam->local_forces[1]-calculate_Vy_integral(model,beam,position);
+  float Vz = beam->local_forces[2]-calculate_Vz_integral(model,beam,position);
   *size = 6;
   float* result = (float*)malloc(sizeof(float)*(*size));
   float My2 = get_My(beam, position, material.E, section.Iy);
@@ -222,4 +253,53 @@ float* getSectionStress(World* world,BeamElement* beam,float position,int* size)
   result[4] = My;
   result[5] = Mz;
   return result;
+}
+
+
+float calculateDiagramValue(FeaModel* model,BeamElement* beam,float position,DIAGRAM_TYPE type){
+  int e_count = 4;
+  float* E = (float*)calloc(e_count,sizeof(float));
+  for(int i=0;i<beam->Nh;i++){
+    for(int j=0;j<beam->Nw;j++){
+      float value =  getFormValue(beam->B[i][j],position);
+      E[i]+= (value*beam->local_dis[j]);
+    }
+  }
+
+  //NOTE: Convert those into section forces
+  int s_count = 4;
+  float* S =  mulMatVec(beam->D,beam->dw,beam->dh,E,e_count,&s_count);
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
+  float value;
+  switch(type){
+  case DIAGRAM_MY:
+    {
+      value =get_My(beam,position,material.E,section.Iy) ;
+    }break;
+  case DIAGRAM_MZ:
+    {
+      value =get_Mz(beam,position,material.E,section.Iy) ;
+    }break;
+  case DIAGRAM_N:
+    {
+      value = S[0];
+    }break;
+  case DIAGRAM_T:
+    {
+      value = S[1];
+    }break;
+  case DIAGRAM_VY:
+    {
+      value = beam->local_forces[1]-calculate_Vy_integral(model,beam,position);;
+    }break;
+  case DIAGRAM_VZ:
+    {
+      value = beam->local_forces[2]-calculate_Vz_integral(model,beam,position);;
+    }break;
+  }
+  free(E);
+  free(S);
+  return value;
+
 }

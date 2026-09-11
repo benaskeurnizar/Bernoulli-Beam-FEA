@@ -1,5 +1,6 @@
 
 #include "draw.h"
+#include "imgui_bridge.h"
 
 
 void recreateSwapChain(VkSwapchainCtx* swapChainCtx,VkPipelineCtx* pipelineCtx,VkDeviceCtx* deviceCtx,Window* window,VkSurfaceKHR surface){
@@ -21,7 +22,7 @@ void recreateSwapChain(VkSwapchainCtx* swapChainCtx,VkPipelineCtx* pipelineCtx,V
 }
 
 
-void updateUniformBuffer(World* world, FrameUniforms* globalUniform, FrameUniforms* meshUniforms, FrameUniforms* lineUniform, uint32_t currentImage){
+void updateUniformBuffer(World* world,Renderer* renderer, FrameUniforms* globalUniform, FrameUniforms* meshUniforms, FrameUniforms* lineUniform, uint32_t currentImage){
     UniformBufferGlobal ubog = {0};
     glm_mat4_copy(world->camera.view, ubog.view);
     glm_mat4_copy(world->proj, ubog.proj);
@@ -37,12 +38,21 @@ void updateUniformBuffer(World* world, FrameUniforms* globalUniform, FrameUnifor
     UniformBufferMesh ubol = {0};
     glm_mat4_identity(ubol.model);
     memcpy(lineUniform->uniformBuffersMapped[currentImage], &ubol, sizeof(ubol));
+
+    if(renderer->show_diagram){
+      UniformBufferMesh ubod = {0};
+      glm_mat4_identity(ubod.model);
+      memcpy(renderer->diagramUniform.uniformBuffersMapped[currentImage], &ubod, sizeof(ubod));
+    }
 }
 
 void recordCommandBuffer(Renderer* renderer,
                          World* world,
+			 FeaModel* model,
                          uint32_t imageIndex)
 {
+  imgui_new_frame();
+
   VkCommandBuffer commandBuffer =
     renderer->commandsCtx.buffers[renderer->currentFrame];
 
@@ -70,6 +80,9 @@ void recordCommandBuffer(Renderer* renderer,
   
   renderPassInfo.clearValueCount = 3;
   renderPassInfo.pClearValues = clearValues;
+
+  // Build your UI
+  imgui_draw(world,renderer,model);
 
   vkCmdBeginRenderPass(commandBuffer,
 		       &renderPassInfo,
@@ -122,6 +135,33 @@ void recordCommandBuffer(Renderer* renderer,
 	      0,
 	      0);
   }
+  //NOTE: draw the diagram
+  if(renderer->show_diagram){
+    vkCmdBindVertexBuffers(commandBuffer,
+			   0,
+			   1,
+			   &renderer->diagramBuffer.vertexBuffer,
+			   offsets);
+    uint32_t diagramSet =
+    (renderer->meshBuffersCount + world->gridCount) * MAX_FRAMES_IN_FLIGHT +
+    renderer->currentFrame;
+  
+    vkCmdBindDescriptorSets(
+			    commandBuffer,
+			    VK_PIPELINE_BIND_POINT_GRAPHICS,
+			    renderer->pipelineCtx.pipelineLayout,
+			    0,
+			    1,
+			    &renderer->descriptorsCtx.sets[diagramSet],
+			    0,
+			    NULL);
+    vkCmdDraw(
+	      commandBuffer,
+	      renderer->diagram.vertexCount,
+	      1,
+	      0,
+	      0);
+  }
   //NOTE: draw the triangles
   
   vkCmdBindPipeline(commandBuffer,
@@ -166,6 +206,9 @@ void recordCommandBuffer(Renderer* renderer,
 		     0);
   }
 
+  // ImGui rendering
+  imgui_render(commandBuffer);
+
   vkCmdEndRenderPass(commandBuffer);
 
   if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -174,7 +217,7 @@ void recordCommandBuffer(Renderer* renderer,
   }
 }
 
-void drawFrame(Renderer* renderer,Window* window,World* world){
+void drawFrame(Renderer* renderer,Window* window,World* world,FeaModel* model){
   vkWaitForFences(renderer->deviceCtx.device, 1, &(renderer->syncCtx.in_flight[renderer->currentFrame]), VK_TRUE, UINT64_MAX);
 
   uint32_t imageIndex;
@@ -186,12 +229,12 @@ void drawFrame(Renderer* renderer,Window* window,World* world){
     fprintf(stderr,"failed to acquire swap chain image!\n");
     exit(EXIT_FAILURE);
   }
-  if(world->update_beam_buffers){
-    world->update_beam_buffers = 0;
-    //NOTE: UPDATE THE MESH BUFFER
-    vkDeviceWaitIdle(renderer->deviceCtx.device);
-    //TODO: FOR NOW...WE KNOW IT'S AT INDEX 0
-    for(int i=0;i<world->meshCount;i++){
+  //NOTE: UPDATE THE MESH BUFFER
+  vkDeviceWaitIdle(renderer->deviceCtx.device);
+  for(int i=0;i<world->meshCount;i++){
+    if(world->meshes[i].updated){
+      //vkDeviceWaitIdle(renderer->deviceCtx.device);
+      world->meshes[i].updated = 0;
       vkDestroyBuffer(renderer->deviceCtx.device, renderer->meshBuffers[i].vertexBuffer, NULL);
       vkFreeMemory(renderer->deviceCtx.device, renderer->meshBuffers[i].vertexBufferMemory, NULL);
       vkDestroyBuffer(renderer->deviceCtx.device, renderer->meshBuffers[i].indexBuffer, NULL);
@@ -216,9 +259,9 @@ void drawFrame(Renderer* renderer,Window* window,World* world){
   vkResetFences(renderer->deviceCtx.device, 1, &(renderer->syncCtx.in_flight[renderer->currentFrame]));
   //updateUniformBuffer(world,&(renderer->globalUniform),renderer->meshUniforms,renderer->currentFrame);
 
-  updateUniformBuffer(world, &(renderer->globalUniform), renderer->meshUniforms, (renderer->lineUniforms), renderer->currentFrame);
+  updateUniformBuffer(world,renderer, &(renderer->globalUniform), renderer->meshUniforms, (renderer->lineUniforms), renderer->currentFrame);
   vkResetCommandBuffer(renderer->commandsCtx.buffers[renderer->currentFrame],0);
-  recordCommandBuffer(renderer,world,imageIndex);
+  recordCommandBuffer(renderer,world,model,imageIndex);
     
   
   //submitting the command buffer

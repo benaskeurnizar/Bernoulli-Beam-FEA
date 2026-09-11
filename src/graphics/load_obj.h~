@@ -1,3 +1,0 @@
-#pragma once
-
-Mesh loadObjectFile(const char* address);

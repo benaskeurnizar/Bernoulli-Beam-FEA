@@ -30,7 +30,7 @@ void createDescriptorLayout(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx
 
 
 void createDescriptorPool(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx,uint32_t meshCount){
-  uint32_t descriptorCount = (meshCount+1) * MAX_FRAMES_IN_FLIGHT;
+  uint32_t descriptorCount = (meshCount+1+1) * MAX_FRAMES_IN_FLIGHT;
   VkDescriptorPoolSize poolSize = {0};
   poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   poolSize.descriptorCount = descriptorCount*2;
@@ -47,9 +47,35 @@ void createDescriptorPool(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx,u
   }
 }
 
+void createImguiDescriptorPool(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx){
+  VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+					{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+					{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+					{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+					{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+					{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 } };
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  pool_info.maxSets = 1000;
+  pool_info.poolSizeCount = (uint32_t)(sizeof(pool_sizes)/sizeof(VkDescriptorPoolSize));
+  pool_info.pPoolSizes = pool_sizes;
+
+  if(vkCreateDescriptorPool(deviceCtx->device, &pool_info,NULL, &(descriptorsCtx->imguiPool)) != VK_SUCCESS){
+    fprintf(stderr,"failed to create the imgui descriptor pool!\n");
+    exit(EXIT_FAILURE);
+  }
+}
+
 void createDescriptorSets(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx, FrameUniforms* meshUniforms,FrameUniforms* lineUniforms,uint32_t meshCount,uint32_t gridCount, FrameUniforms* globalUniform){
 
-  uint32_t descriptorCount = (meshCount+gridCount) * MAX_FRAMES_IN_FLIGHT;
+  uint32_t descriptorCount = (meshCount+gridCount+1) * MAX_FRAMES_IN_FLIGHT;
   //VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
   VkDescriptorSetLayout* layouts = (VkDescriptorSetLayout*)malloc(sizeof(VkDescriptorSetLayout) *descriptorCount);
 
@@ -156,6 +182,7 @@ void createDescriptorSets(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx, 
 
 void createDescriptorPoolsSets(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx, FrameUniforms* meshUniforms,uint32_t meshCount,FrameUniforms* lineUniforms,uint32_t gridCount, FrameUniforms* globalUniform){
   createDescriptorPool(descriptorsCtx,deviceCtx,meshCount);
+  createImguiDescriptorPool(descriptorsCtx,deviceCtx);
   createDescriptorSets(descriptorsCtx,deviceCtx,meshUniforms,lineUniforms,meshCount,gridCount,globalUniform);
 }
 
@@ -167,5 +194,6 @@ void cleanDescriptorLayout(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx)
 
 void cleanupDescriptorPoolSets(DescriptorCtx* descriptorsCtx,VkDeviceCtx* deviceCtx){
   vkDestroyDescriptorPool(deviceCtx->device, descriptorsCtx->pool, NULL);
+  vkDestroyDescriptorPool(deviceCtx->device, descriptorsCtx->imguiPool, NULL);
   free(descriptorsCtx->sets); 
 }

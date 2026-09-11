@@ -14,6 +14,7 @@
 #include "../vulkan_backend/vk_buffer.h"
 
 
+
 typedef struct{
   VkInstanceCtx instanceCtx;
   VkDeviceCtx deviceCtx;
@@ -32,6 +33,11 @@ typedef struct{
   FrameUniforms* lineUniforms;
   uint32_t currentFrame;
   uint32_t framebufferResized;
+
+  Diagram diagram;
+  LineBuffer diagramBuffer;
+  FrameUniforms diagramUniform;
+  int show_diagram;
 }Renderer;
 
 void initRenderer(Renderer* renderer,Window* window,World* world);

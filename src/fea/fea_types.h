@@ -5,6 +5,8 @@
 #include <math.h>
 #include <stdint.h>
 
+
+
 typedef enum{
   FORCE,
   MOMENT,
@@ -25,6 +27,10 @@ typedef enum{
   CIRCLE,
   RECTANGLE
 }SectionType;
+
+typedef enum{
+  BEAM,
+}ElementType;
 
 typedef struct{
   float x,y,z;// pos
@@ -70,6 +76,7 @@ typedef struct{
 }Fix;
 
 typedef struct{
+  int element_id;
   int node1,node2;// node1 and node2 are the ids of the nodes,to acess the nodes array 
   float Le;
   int sec_id;
@@ -94,7 +101,6 @@ typedef struct{
   int local_forces_size;
 }BeamElement;
 
-
 typedef struct{
   Material* materials;
   int num_materials;
@@ -108,4 +114,7 @@ typedef struct{
   int num_fixes;
   BeamElement* beams;
   int num_beam_elements;
-}BeamFEA;
+
+  int fea_solved;
+}FeaModel;
+

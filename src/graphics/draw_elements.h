@@ -2,7 +2,9 @@
 
 #include "graphics.h"
 //#include "../vulkan_backend/vk_buffer.h"
+#include "../fea/fea_types.h"
 #include "../fea/beam_result.h"
+
 
 typedef enum{
   NO_STRESS = 0,
@@ -21,7 +23,15 @@ typedef enum{
   ROT_Z = 1 << 5
 }DISPLACEMENT_TYPE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void createElementVertices(World* world,BeamElement* beam,Mesh* mesh,uint8_t displacements,uint8_t stresses,int first);
+void createElementVertices(FeaModel* model,BeamElement* beam,Mesh* mesh,uint32_t render_flags);
 
-void applyDeformations(World* world,BeamElement* beam,float position,vec3 center,vec3 forward,vec3 up,vec3 right,uint8_t displacements);
+void applyDeformations(FeaModel* model,BeamElement* beam,float position,vec3 center,vec3 forward,vec3 up,vec3 right,uint32_t render_flags);
+
+#ifdef __cplusplus
+}
+#endif
+  

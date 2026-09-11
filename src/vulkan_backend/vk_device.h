@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "vk_types.h"
 #include "vk_instance.h"
 
@@ -31,3 +35,7 @@ QueueFamilyIndices findQueueFamilies(VkSurfaceKHR surface,VkPhysicalDevice devic
 bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 SwapChainSupportDetails querySwapChainSupport(VkSurfaceKHR surface,VkPhysicalDevice device);
 void cleanupDeviceCtx(VkDeviceCtx* Device);
+
+#ifdef __cplusplus
+}
+#endif

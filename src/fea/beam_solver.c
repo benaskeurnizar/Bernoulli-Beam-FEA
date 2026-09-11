@@ -3,47 +3,8 @@
 #include "matrices.h"
 #include "beam_solver.h"
 #include "beam_result.h"
-#include "../graphics/graphics.h"
+#include "fea_globals.h"
 
-float** getReductedK(float** K,int w,int h,int node_start,int num_fixed,int num_nodes,int* reducted_w,int* reducted_h){
-  int num_dofs = 6;
-  *reducted_w = (num_dofs*num_nodes)-(num_dofs*num_fixed);
-  *reducted_h = (num_dofs*num_nodes)-(num_dofs*num_fixed);
-  float** K_reducted = (float**)malloc(sizeof(float*)*(*reducted_h));
-  for(int y=0;y<*reducted_h;y++){
-    K_reducted[y] = (float*)calloc(*reducted_w,sizeof(float));
-  }
-  int y_idx = 0;
-  int x_idx = 0;
-  for(int y=0;y<h;y++){
-    if(y>=node_start && y<node_start+num_dofs){
-      continue;
-    }
-    x_idx = 0;
-    for(int x=0;x<w;x++){
-      if(x>=node_start && x<node_start+num_dofs){
-	continue;
-      }
-      K_reducted[y_idx][x_idx++] = K[y][x];
-    }
-    y_idx++;
-  }
-  return K_reducted;
-}
-
-float* getLReducted(float* L,int h,int node_start,int num_fixed,int num_nodes,int* reducted_h){
-   int num_dofs = 6;
-   *reducted_h = (num_dofs*num_nodes)-(num_dofs*num_fixed);
-   float* L_reducted = (float*)calloc(*reducted_h,sizeof(float));
-   int y_idx = 0;
-   for(int y=0;y<h;y++){
-     if(y>=node_start && y<node_start+num_dofs){
-      continue;
-     }
-     L_reducted[y_idx++] = L[y];
-   }
-   return L_reducted;
-}
 
 FormFunc** createBMatrixe(BeamElement* bar,FormFunc** form,int w,int h){
   FormFunc** result = (FormFunc**)malloc(sizeof(FormFunc*)*(h));
@@ -133,21 +94,13 @@ FormFunc** createBMatrixe(BeamElement* bar,FormFunc** form,int w,int h){
 }
 
 float** createStiffnesMatrix(BeamElement* bar,FormFunc** B,int w,int h,int* KW,int* KH){
-  printf("D matrix : \n");
-  printMat(bar->D,bar->dw,bar->dh);
   int wt = 0;
   int ht = 0;
   FormFunc** B_t =  transposeMatForm(B,w,h,&ht,&wt);
-  printf("Bt matrix : \n");
-  printFormFunctionMat(B_t,wt,ht);
   int wm1,hm1;
   FormFunc** B_t_D = multmatForm_scale(B_t,wt,ht,bar->D,bar->dw,bar->dh,&hm1,&wm1);
-  printf("Bt_D matrix : \n");
-  printFormFunctionMat(B_t_D,wm1,hm1);
   int kh,kw;
   FormFunc** Ke = multmatForm(B_t_D,wm1,hm1,B,w,h,&kh,&kw);
-  printf("Ke matrix : \n");
-  printFormFunctionMat(Ke,kw,kh);
   //TODO: integrate Ke(FormFunc**) to get Ke(float**)
   float j = bar->Le;
   float** result = (float**)malloc(sizeof(float*)*(kh));
@@ -159,8 +112,6 @@ float** createStiffnesMatrix(BeamElement* bar,FormFunc** B,int w,int h,int* KW,i
   }
   *KW = kw;
   *KH = kh;
-  printf("Ke matrix integrated : \n");
-  printMat(result,kw,kh);
   return result;
 }
 
@@ -208,47 +159,37 @@ float** TMatrix(Node* nodes,BeamElement* bar,int* w,int* h){//NOTE: returns the 
   return result;
 }
 
-void addTestLoadV(BeamElement* bar,int num_bars,int num_nodes,float* L,int h){//TODO: make this for 
-  //NOTE: this is dummy, we put a vertical node on the second node
-  // Fx Fy Fz Mx My Mz Fx Fy Fz Mx My Mz
-  int dofs = 6;
-  int node = 1;//NOTE: starting from 0
-  int c = 1;//NOTE: offset for y component
-  L[node*dofs+c] = -1000.0; //NOTE: it's positive because global y axis is downwards (supposedly), and for the 100.0 value,i'm not sure ,just for testing
-  //L[node*dofs+5] = 1000.0f;
-}
-
-void createElemetsDisLoad(World* world){
+void createElemetsDisLoad(FeaModel* model){
   FormFunc w[4];
   for(int i=0;i<4;i++){
     w[i].n = (float*)calloc(3,sizeof(float));
     w[i].size = 3;
   }
-  for(int i=0;i<world->num_forces;i++){
+  for(int i=0;i<model->num_forces;i++){
     for(int j=0;j<4;j++){
       memset((w[j].n),0,sizeof(float)*3);
     }
     int element_idx = 0;
     int N_idx = 0;
-    if(world->forces[i].type == FORCE_DIS_Z){
-      w[2].n[0] = world->forces[i].x;
-      w[2].n[1] = world->forces[i].y;
-      w[2].n[2] = world->forces[i].z;
-      element_idx = world->forces[i].element_id;
-    }else if( world->forces[i].type == FORCE_DIS_Y){
-      w[1].n[0] = world->forces[i].x;
-      w[1].n[1] = world->forces[i].y;
-      w[1].n[2] = world->forces[i].z;
-      element_idx = world->forces[i].element_id;
+    if(model->forces[i].type == FORCE_DIS_Z){
+      w[2].n[0] = model->forces[i].x;
+      w[2].n[1] = model->forces[i].y;
+      w[2].n[2] = model->forces[i].z;
+      element_idx = model->forces[i].element_id;
+    }else if( model->forces[i].type == FORCE_DIS_Y){
+      w[1].n[0] = model->forces[i].x;
+      w[1].n[1] = model->forces[i].y;
+      w[1].n[2] = model->forces[i].z;
+      element_idx = model->forces[i].element_id;
     }else{
       continue;
     }
-    if(!world->beams[element_idx].dis_load_size){
-      world->beams[element_idx].dis_load_size = 12;
-      world->beams[element_idx].dis_load = (float*)calloc(world->beams[element_idx].dis_load_size,sizeof(float));
+    if(!model->beams[element_idx].dis_load_size){
+      model->beams[element_idx].dis_load_size = 12;
+      model->beams[element_idx].dis_load = (float*)calloc(model->beams[element_idx].dis_load_size,sizeof(float));
     }
     int Ntw,Nth;
-    FormFunc** Nt = transposeMatForm(world->beams[element_idx].N,world->beams[element_idx].Nw,world->beams[element_idx].Nh,&Nth,&Ntw);
+    FormFunc** Nt = transposeMatForm(model->beams[element_idx].N,model->beams[element_idx].Nw,model->beams[element_idx].Nh,&Nth,&Ntw);
 
     int Feh;
     FormFunc* Fe = mulMatVecF(Nt,Nth,Ntw,w,4, &Feh);
@@ -258,7 +199,7 @@ void createElemetsDisLoad(World* world){
     }
 
     for(int j=0;j<Feh;j++){
-      world->beams[element_idx].dis_load[j] += integrateX((Fe[j]),0.0,1.0) * world->beams[element_idx].Le;
+      model->beams[element_idx].dis_load[j] += integrateX((Fe[j]),0.0,1.0) * model->beams[element_idx].Le;
     }
     
     for(int k=0;k<Nth;k++){
@@ -279,49 +220,49 @@ void createElemetsDisLoad(World* world){
   }
 }
 
-void addElementLoads(World* world,float* L,int l_size){
+void addElementLoads(FeaModel* model,float* L,int l_size){
   int num_dofs = 6;
-  for(int i=0;i<world->num_forces;i++){
-    int idx = world->forces[i].node_id*num_dofs;
+  for(int i=0;i<model->num_forces;i++){
+    int idx = model->forces[i].node_id*num_dofs;
     if(idx+num_dofs>l_size){
        fprintf(stderr,"addElementLoads : bad index\n");
        exit(EXIT_FAILURE);
     }
-    if(world->forces[i].type==FORCE){
-      L[idx]+=world->forces[i].x;
-      L[idx+1]+=world->forces[i].y;
-      L[idx+2]+=world->forces[i].z;
-    }else if(world->forces[i].type==MOMENT){
-      L[idx+3]+=world->forces[i].x;
-      L[idx+4]+=world->forces[i].y;
-      L[idx+5]+=world->forces[i].z;
-    }else if(world->forces[i].type!=FORCE_DIS_Y && world->forces[i].type!=FORCE_DIS_Z){
+    if(model->forces[i].type==FORCE){
+      L[idx]+=model->forces[i].x;
+      L[idx+1]+=model->forces[i].y;
+      L[idx+2]+=model->forces[i].z;
+    }else if(model->forces[i].type==MOMENT){
+      L[idx+3]+=model->forces[i].x;
+      L[idx+4]+=model->forces[i].y;
+      L[idx+5]+=model->forces[i].z;
+    }else if(model->forces[i].type!=FORCE_DIS_Y && model->forces[i].type!=FORCE_DIS_Z){
       fprintf(stderr,"addElementLoads : wrong load type \n");
       exit(EXIT_FAILURE);
     }
   }
-  for(int i=0;i<world->num_beam_elements;i++){
-    if(!world->beams[i].dis_load_size){
+  for(int i=0;i<model->num_beam_elements;i++){
+    if(!model->beams[i].dis_load_size){
       continue;
     }
     //NOTE: transform dis forces to global coordinates
     int Tw,Th;
-    float** T = TMatrix(world->nodes,&(world->beams[i]),&Tw,&Th);
+    float** T = TMatrix(model->nodes,&(model->beams[i]),&Tw,&Th);
     //printf("T matrix : \n");
     //printMat(T,Tw,Th);
 
     int Ttw = 0,Tth = 0;
     float** Tt = transposeMat(T,Tw,Th,&Tth,&Ttw);
     int h;
-    float* dis_forcesG = mulMatVec(Tt,Ttw,Tth, world->beams[i].dis_load, world->beams[i].dis_load_size,&h);
+    float* dis_forcesG = mulMatVec(Tt,Ttw,Tth, model->beams[i].dis_load, model->beams[i].dis_load_size,&h);
     if(h!=12){
       printf("ERROR : H MUST BE 12!\n");
     }
-    int node1_idx =world->beams[i].node1*num_dofs ;
+    int node1_idx =model->beams[i].node1*num_dofs ;
     for(int j=0;j<6;j++){
       L[node1_idx+j] += dis_forcesG[j];
     }
-    int node2_idx =world->beams[i].node2*num_dofs ;
+    int node2_idx =model->beams[i].node2*num_dofs ;
     for(int j=0;j<6;j++){
       L[node2_idx+j] += dis_forcesG[j+6];
     }
@@ -339,7 +280,7 @@ void addElementLoads(World* world,float* L,int l_size){
   }
 }
 
-void calculateElementsLocalForces(World* world,BeamElement* beam){
+void calculateElementsLocalForces(FeaModel* model,BeamElement* beam){
   beam->local_forces = mulMatVec(beam->Ke,beam->Kew,beam->Keh,beam->local_dis,beam->local_dis_size,&(beam->local_forces_size));
   if(beam->dis_load_size){
     for(int i=0;i<beam->dis_load_size;i++){
@@ -363,28 +304,28 @@ void assemble(float** K,int kw,int kh,float** Ke,int keh,int kew,int node1,int n
   }
 }
 
-float** reductGlobalK(World* world,float** K,int kw,int kh,int* w,int* h){
+float** reductGlobalK(FeaModel* model,float** K,int kw,int kh,int* w,int* h){
   int num_dofs = 6;
-  *w = (num_dofs*world->num_nodes);
-  *h = (num_dofs*world->num_nodes);
+  *w = (num_dofs*model->num_nodes);
+  *h = (num_dofs*model->num_nodes);
   int reduction = 0;
-  for(int i=0;i<world->num_fixes;i++){
-    if(world->fixes[i].type & FIX_X){
+  for(int i=0;i<model->num_fixes;i++){
+    if(model->fixes[i].type & FIX_X){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_Y){
+    if(model->fixes[i].type & FIX_Y){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_Z){
+    if(model->fixes[i].type & FIX_Z){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RX){
+    if(model->fixes[i].type & FIX_RX){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RY){
+    if(model->fixes[i].type & FIX_RY){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RZ){
+    if(model->fixes[i].type & FIX_RZ){
       reduction++;
     }
   }
@@ -401,8 +342,8 @@ float** reductGlobalK(World* world,float** K,int kw,int kh,int* w,int* h){
     int current_dof_h = y%num_dofs;
     uint8_t fix = 1<<current_dof_h;
     int pass = 0;
-    for(int i=0;i<world->num_fixes;i++){
-      if(world->fixes[i].node_id==current_node_h && (world->fixes[i].type&fix)){
+    for(int i=0;i<model->num_fixes;i++){
+      if(model->fixes[i].node_id==current_node_h && (model->fixes[i].type&fix)){
 	pass = 1;
       }
     }
@@ -415,8 +356,8 @@ float** reductGlobalK(World* world,float** K,int kw,int kh,int* w,int* h){
       int current_dof_w = x%num_dofs;
       fix = 1<<current_dof_w;
       pass = 0;
-      for(int i=0;i<world->num_fixes;i++){
-	if(world->fixes[i].node_id==current_node_w && (world->fixes[i].type&fix)){
+      for(int i=0;i<model->num_fixes;i++){
+	if(model->fixes[i].node_id==current_node_w && (model->fixes[i].type&fix)){
 	  pass = 1;
 	}
       }
@@ -430,27 +371,27 @@ float** reductGlobalK(World* world,float** K,int kw,int kh,int* w,int* h){
   return K_reducted;
 }
 
-float* reductGlobalL(World* world,float* L,int lh,int* h){
+float* reductGlobalL(FeaModel* model,float* L,int lh,int* h){
   int num_dofs = 6;
-  *h = (num_dofs*world->num_nodes);
+  *h = (num_dofs*model->num_nodes);
   int reduction = 0;
-  for(int i=0;i<world->num_fixes;i++){
-    if(world->fixes[i].type & FIX_X){
+  for(int i=0;i<model->num_fixes;i++){
+    if(model->fixes[i].type & FIX_X){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_Y){
+    if(model->fixes[i].type & FIX_Y){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_Z){
+    if(model->fixes[i].type & FIX_Z){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RX){
+    if(model->fixes[i].type & FIX_RX){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RY){
+    if(model->fixes[i].type & FIX_RY){
       reduction++;
     }
-    if(world->fixes[i].type & FIX_RZ){
+    if(model->fixes[i].type & FIX_RZ){
       reduction++;
     }
   }
@@ -463,8 +404,8 @@ float* reductGlobalL(World* world,float* L,int lh,int* h){
     int current_dof_h = y%num_dofs;
     uint8_t fix = 1<<current_dof_h;
     int pass = 0;
-    for(int i=0;i<world->num_fixes;i++){
-      if(world->fixes[i].node_id==current_node_h && (world->fixes[i].type&fix)){
+    for(int i=0;i<model->num_fixes;i++){
+      if(model->fixes[i].node_id==current_node_h && (model->fixes[i].type&fix)){
 	pass = 1;
       }
     }
@@ -476,10 +417,11 @@ float* reductGlobalL(World* world,float* L,int lh,int* h){
   return L_reducted;
 }
 
-void beamSolver(World* world){
+
+void beamSolver(FeaModel* model){
   //TODO: INITIALIZE THE GLOBAL STIFNESS MATRIX
   int num_dofs = 6;
-  int num_nodes = world->num_beam_elements+1;
+  int num_nodes = model->num_beam_elements+1;
   int K_global_w = (num_dofs*num_nodes);
   int K_global_h = (num_dofs*num_nodes);
   float** K_global = (float**)malloc(sizeof(float*)*K_global_h);
@@ -487,28 +429,28 @@ void beamSolver(World* world){
     K_global[y] = (float*)calloc(K_global_w,sizeof(float));
   }
   
-  for(int i=0;i<world->num_beam_elements;i++){
+  for(int i=0;i<model->num_beam_elements;i++){
     //NOTE: CREATE FORM FUNCTIONS
     int Nw =0,Nh =0;
-    world->beams[i].N = createBeamFormMatrixes(&(world->beams[i]),&(world->beams[i].Nw),&(world->beams[i].Nh));
+    model->beams[i].N = createBeamFormMatrixes(&(model->beams[i]),&(model->beams[i].Nw),&(model->beams[i].Nh));
     //printf("N matrix : \n");
-    //printFormFunctionMat( world->beams[i].N,(world->beams[i].Nw),(world->beams[i].Nh));
+    //printFormFunctionMat( model->beams[i].N,(model->beams[i].Nw),(model->beams[i].Nh));
 
     //NOTE: CREATE B MATRIX
-    int Bw = world->beams[i].Nw,Bh = world->beams[i].Nh;
-    world->beams[i].B = createBMatrixe(&(world->beams[i]),world->beams[i].N,Bw,Bh);
+    int Bw = model->beams[i].Nw,Bh = model->beams[i].Nh;
+    model->beams[i].B = createBMatrixe(&(model->beams[i]),model->beams[i].N,Bw,Bh);
     //printf("B matrix : \n");
-    //printFormFunctionMat( world->beams[i].B,(world->beams[i].Nw),(world->beams[i].Nh));
+    //printFormFunctionMat( model->beams[i].B,(model->beams[i].Nw),(model->beams[i].Nh));
 
     //NOTE: CREATE ELEMENT LOCAL STIFFNESS MATRIX
     int Kew,Keh;
-    world->beams[i].Ke = createStiffnesMatrix(&(world->beams[i]),world->beams[i].B,Bw,Bh,&(world->beams[i].Kew),&(world->beams[i].Keh));
-    Kew = (world->beams[i].Kew);
-    Keh = (world->beams[i].Keh);
+    model->beams[i].Ke = createStiffnesMatrix(&(model->beams[i]),model->beams[i].B,Bw,Bh,&(model->beams[i].Kew),&(model->beams[i].Keh));
+    Kew = (model->beams[i].Kew);
+    Keh = (model->beams[i].Keh);
 
     //NOTE: CREATE ELEMENT TRANSFORMATION MATRIX
     int Tw,Th;
-    float** T = TMatrix(world->nodes,&(world->beams[i]),&Tw,&Th);
+    float** T = TMatrix(model->nodes,&(model->beams[i]),&Tw,&Th);
     //printf("T matrix : \n");
     //printMat(T,Tw,Th);
 
@@ -518,7 +460,7 @@ void beamSolver(World* world){
     printMat(Tt,Ttw,Tth);
     
     int m1h,m1w;
-    float** m1 =  multmat(Tt,Ttw,Tth,world->beams[i].Ke,Kew,Keh,&m1h,&m1w);
+    float** m1 =  multmat(Tt,Ttw,Tth,model->beams[i].Ke,Kew,Keh,&m1h,&m1w);
     printf("m1 matrix : \n");
     printMat(m1,m1w,m1h);
 
@@ -529,7 +471,7 @@ void beamSolver(World* world){
     printMat(Kg,Kgw,Kgh);
     
     //NOTE: ASSEMBLE ELEMENT'S GLOBAL STIFFNESS MATRIX INTO THE MODEL GLOBAL STIFFNESS MATRIX
-    assemble(K_global,K_global_w,K_global_h,Kg,Kgh,Kgw,world->beams[i].node1,world->beams[i].node2,num_dofs);
+    assemble(K_global,K_global_w,K_global_h,Kg,Kgh,Kgw,model->beams[i].node1,model->beams[i].node2,num_dofs);
 
     //FREE
     for(int y=0;y<Kgh;y++){
@@ -547,10 +489,10 @@ void beamSolver(World* world){
     }
     free(Tt);
   }
-  createElemetsDisLoad(world);
+  createElemetsDisLoad(model);
    int Lh = num_dofs*num_nodes;
   float*L = (float*)calloc(Lh,sizeof(float));
-  addElementLoads(world,L,Lh);
+  addElementLoads(model,L,Lh);
   //printf("K_global matrix : \n");
   //printMat(K_global,K_global_w,K_global_h);
 
@@ -560,8 +502,8 @@ void beamSolver(World* world){
   //float** K_reducted = getReductedK(K_global,K_global_w,K_global_h,node_start,num_fixed,num_nodes,&reducted_w,&reducted_h);
   //float* L_reducted = getLReducted(L,Lh,node_start,num_fixed,num_nodes,&reducted_h);
 
-  float** K_reducted = reductGlobalK(world,K_global,K_global_w,K_global_h,&reducted_w,&reducted_h);
-  float* L_reducted = reductGlobalL(world,L,Lh,&reducted_h);
+  float** K_reducted = reductGlobalK(model,K_global,K_global_w,K_global_h,&reducted_w,&reducted_h);
+  float* L_reducted = reductGlobalL(model,L,Lh,&reducted_h);
   //printf("K_reduced matrix : \n");
   //printMat(K_reducted,reducted_w,reducted_h);
 
@@ -599,8 +541,8 @@ void beamSolver(World* world){
     int current_dof_h = y%num_dofs;
     uint8_t fix = 1<<current_dof_h;
     int pass = 0;
-    for(int i=0;i<world->num_fixes;i++){
-      if(world->fixes[i].node_id==current_node_h && (world->fixes[i].type&fix)){
+    for(int i=0;i<model->num_fixes;i++){
+      if(model->fixes[i].node_id==current_node_h && (model->fixes[i].type&fix)){
 	pass = 1;
       }
     }
@@ -621,13 +563,13 @@ void beamSolver(World* world){
   
 
   //TODO: now for each element,we comput it's local displacements and then it's F vector to get STRESS RESULTANTS
-  for(int i=0;i<world->num_beam_elements;i++){
+  for(int i=0;i<model->num_beam_elements;i++){
     int Tw,Th;
-    float** T = TMatrix(world->nodes,&(world->beams[i]),&Tw,&Th);
+    float** T = TMatrix(model->nodes,&(model->beams[i]),&Tw,&Th);
     int temp_size = 6*2;
     float* temp = (float*)calloc(sizeof(float),temp_size);
-    int node1 = world->beams[i].node1;
-    int node2 = world->beams[i].node2;
+    int node1 = model->beams[i].node1;
+    int node2 = model->beams[i].node2;
     int temp_idx = 0;
     for(int j=node1*6;j<node1*6+6;j++){
       temp[temp_idx++] = Global_Displacements[j];
@@ -636,22 +578,22 @@ void beamSolver(World* world){
       temp[temp_idx++] = Global_Displacements[j];
     }
     //NOTE: now temp has his element's 12 dofs from the full global displacement vector
-    world->beams[i].local_dis_size = temp_size;
-    world->beams[i].local_dis =  mulMatVec(T,Tw,Th,temp,temp_size,&(world->beams[i].local_dis_size));
+    model->beams[i].local_dis_size = temp_size;
+    model->beams[i].local_dis =  mulMatVec(T,Tw,Th,temp,temp_size,&(model->beams[i].local_dis_size));
     printf("element %d local displacements: \n",i);
     printf("{");
-    for(int k=0;k<world->beams[i].local_dis_size;k++){
-      printf(" %f",world->beams[i].local_dis[k]);
+    for(int k=0;k<model->beams[i].local_dis_size;k++){
+      printf(" %f",model->beams[i].local_dis[k]);
     }
     printf("}\n");
 
     //NOTE: the local forces
-    //world->beams[i].local_forces = mulMatVec(world->beams[i].Ke,world->beams[i].Kew,world->beams[i].Keh,world->beams[i].local_dis,world->beams[i].local_dis_size,&(world->beams[i].local_forces_size));
+    //model->beams[i].local_forces = mulMatVec(model->beams[i].Ke,model->beams[i].Kew,model->beams[i].Keh,model->beams[i].local_dis,model->beams[i].local_dis_size,&(model->beams[i].local_forces_size));
 
     /*printf("element %d local forces: \n",i);
     printf("{");
-    for(int k=0;k<world->beams[i].local_forces_size;k++){
-      printf(" %f",world->beams[i].local_forces[k]);
+    for(int k=0;k<model->beams[i].local_forces_size;k++){
+      printf(" %f",model->beams[i].local_forces[k]);
     }
     printf("}\n");*/
 
@@ -662,41 +604,41 @@ void beamSolver(World* world){
     }
     free(T);
   }
-  for(int i=0;i<world->num_beam_elements;i++){
-    calculateElementsLocalForces(world,&(world->beams[i]));
+  for(int i=0;i<model->num_beam_elements;i++){
+    calculateElementsLocalForces(model,&(model->beams[i]));
   }
   printf("local displacements :\n");
-  for(int i=0;i<world->num_beam_elements;i++){
+  for(int i=0;i<model->num_beam_elements;i++){
     printf("Element %d local displacements : \n",i);
     printf("{");
-    for(int j=0;j<world->beams[i].local_dis_size;j++){
-      printf(" %.6f",world->beams[i].local_dis[j]);
+    for(int j=0;j<model->beams[i].local_dis_size;j++){
+      printf(" %.6f",model->beams[i].local_dis[j]);
     }
     printf("}\n");
   }
 
   printf("local forces :\n");
-  for(int i=0;i<world->num_beam_elements;i++){
+  for(int i=0;i<model->num_beam_elements;i++){
     printf("Element %d local forces : \n",i);
     printf("{");
-    for(int j=0;j<world->beams[i].local_forces_size;j++){
-      printf(" %.6f",world->beams[i].local_forces[j]);
+    for(int j=0;j<model->beams[i].local_forces_size;j++){
+      printf(" %.6f",model->beams[i].local_forces[j]);
     }
     printf("}\n");
   }
 
   printf("Bar 1 vertical displacement results : \n");
   float pos = 0.0,step = 0.1;
-  float v1 = world->beams[0].local_dis[1];
-  float theta_z1 = world->beams[0].local_dis[5];
-  float v2 = world->beams[0].local_dis[7];
-  float theta_z2 = world->beams[0].local_dis[11];
-  while(pos <= world->beams[0].Le){
-    float v = get_z_displacement(&(world->beams[0]),pos,v1,theta_z1,v2,theta_z2);
+  float v1 = model->beams[0].local_dis[1];
+  float theta_z1 = model->beams[0].local_dis[5];
+  float v2 = model->beams[0].local_dis[7];
+  float theta_z2 = model->beams[0].local_dis[11];
+  while(pos <= model->beams[0].Le){
+    float v = get_z_displacement(&(model->beams[0]),pos,v1,theta_z1,v2,theta_z2);
     printf("pos = %f : %.6f  ",pos,v);
     pos+=step;
   }
-  //float v = get_z_displacement(&(world->beams[0]),2.0,v1,theta_z1,v2,theta_z2);
+  //float v = get_z_displacement(&(model->beams[0]),2.0,v1,theta_z1,v2,theta_z2);
   //printf("pos = 2.0 : %.6f  ",v);
 
   //NOTE: get reactions
@@ -709,4 +651,8 @@ void beamSolver(World* world){
   }
   printf(" }");
   //return NULL;
+
+  setFeaGlobals(model);
 }
+
+

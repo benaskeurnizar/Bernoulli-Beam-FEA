@@ -106,20 +106,7 @@ void initWorld(World* world, uint32_t width, uint32_t height)
   world->gridCount = 1;
   world->grids = (Grid*)calloc(world->gridCount,sizeof(Grid));
   createGridLines(&(world->grids[0]), 100, 1.0f);
-  initFea(world);
-
-  //NOTE: FOR EACH BEAM,CREATE A MESH FOR IT
-  world->meshCount = world->num_beam_elements;
-  world->meshes = (Mesh*)calloc(world->num_beam_elements,sizeof(Mesh));
-  for(int i=0;i<world->num_beam_elements;i++){
-    //addBeamMesh(world,&(world->meshes[i]),&(world->beams[i]));
-    createElementVertices(world,&(world->beams[i]),&(world->meshes[i]),0,0,1);
-  }
-  //world->meshes = malloc(sizeof(Mesh) * world->meshCount);
-
-  //world->meshes[0] = loadObjectFile("E:/Vulkan/Triangle_Organized/assets/Sniper_Rifle.obj");
-
-  //createCubeMesh(&world->meshes[0]);
+  
 }
 
 void cleanupWorld(World* world)

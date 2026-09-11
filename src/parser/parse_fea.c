@@ -710,7 +710,7 @@ Fix* parseFixes(FILE** f,int* count,int num_nodes){
   return result;
 }
 
-void parseFea(World* world,const char* address){//TODO: should be void parseFea(World* world,const char* address)
+void parseFea(FeaModel* model,const char* address){//TODO: should be void parseFea(Model* model,const char* address)
   Material* materials = NULL;
   int material_count = 0;
   Section* sections = NULL;
@@ -774,29 +774,29 @@ void parseFea(World* world,const char* address){//TODO: should be void parseFea(
       }
     }
   }
-  world->num_materials = material_count;
-  world->materials = (Material*)calloc(material_count,sizeof(Material));
-  memcpy(world->materials,materials,material_count*sizeof(Material));
+  model->num_materials = material_count;
+  model->materials = (Material*)calloc(material_count,sizeof(Material));
+  memcpy(model->materials,materials,material_count*sizeof(Material));
 
-  world->num_sections = section_count;
-  world->sections = (Section*)calloc(section_count,sizeof(Section));
-  memcpy(world->sections,sections,section_count*sizeof(Section));
+  model->num_sections = section_count;
+  model->sections = (Section*)calloc(section_count,sizeof(Section));
+  memcpy(model->sections,sections,section_count*sizeof(Section));
 
-  world->num_nodes = node_count;
-  world->nodes = (Node*)calloc(node_count,sizeof(Node));
-  memcpy(world->nodes,nodes,node_count*sizeof(Node));
+  model->num_nodes = node_count;
+  model->nodes = (Node*)calloc(node_count,sizeof(Node));
+  memcpy(model->nodes,nodes,node_count*sizeof(Node));
 
-  world->num_forces = load_count;
-  world->forces = (Load*)calloc(load_count,sizeof(Load));
-  memcpy(world->forces,loads,load_count*sizeof(Load));
+  model->num_forces = load_count;
+  model->forces = (Load*)calloc(load_count,sizeof(Load));
+  memcpy(model->forces,loads,load_count*sizeof(Load));
 
-  world->num_fixes = fix_count;
-  world->fixes = (Fix*)calloc(fix_count,sizeof(Fix));
-  memcpy(world->fixes,fixes,fix_count*sizeof(Fix));
+  model->num_fixes = fix_count;
+  model->fixes = (Fix*)calloc(fix_count,sizeof(Fix));
+  memcpy(model->fixes,fixes,fix_count*sizeof(Fix));
 
-  world->num_beam_elements = element_count;
-  world->beams = (BeamElement*)calloc(element_count,sizeof(BeamElement));
-  memcpy(world->beams,elements,element_count*sizeof(BeamElement));
+  model->num_beam_elements = element_count;
+  model->beams = (BeamElement*)calloc(element_count,sizeof(BeamElement));
+  memcpy(model->beams,elements,element_count*sizeof(BeamElement));
 
   free(materials);
   free(sections);

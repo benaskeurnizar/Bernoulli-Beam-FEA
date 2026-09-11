@@ -57,7 +57,7 @@ void stress_to_color2(float t, float* r, float* g, float* b) {
         *b = 0.0f;
     }
 }
-void stress_to_color_sigma(float sigma, float* r, float* g, float* b)
+void stress_to_color_sigma(float sigma, float* r, float* g, float* b,uint32_t render_flags)
 {
     float t = (sigma - my_sigma_min) /
               (my_sigma_max - my_sigma_min);
@@ -139,21 +139,48 @@ point2D* createRectOutline(float width, float height, int segPerEdge, int* count
     return points;
 }
 
-float compute_sigmaX(World* world,BeamElement* beam,float y,float z,float position){
-  Section section = world->sections[beam->sec_id];
-  Material material = world->materials[beam->mat_id];
+float compute_axial_stress(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
   int point_stress_count = 0;
-  float* point_stresses =  getSectionStress(world,beam,position,&point_stress_count);
+  float* point_stresses =  getSectionStress(model,beam,position,&point_stress_count);
+  float sigma = (point_stresses[0]/section.A);
+  return sigma;
+}
+
+float compute_bend_stress_y(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
+  int point_stress_count = 0;
+  float* point_stresses =  getSectionStress(model,beam,position,&point_stress_count);
+  float sigma = (-point_stresses[5]*y/section.Iz);
+  return sigma;
+}
+
+float compute_bend_stress_z(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
+  int point_stress_count = 0;
+  float* point_stresses =  getSectionStress(model,beam,position,&point_stress_count);
+  float sigma = (point_stresses[4]*z/section.Iy);
+  return sigma;
+}
+
+float compute_sigmaX(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
+  int point_stress_count = 0;
+  float* point_stresses =  getSectionStress(model,beam,position,&point_stress_count);
   float sigma = (point_stresses[0]/section.A)+(-point_stresses[5]*y/section.Iz)+(point_stresses[4]*z/section.Iy);
   
   return sigma;
 }
 
-float compute_shear(World* world,BeamElement* beam,float y,float z,float position){
-  Section section = world->sections[beam->sec_id];
-  Material material = world->materials[beam->mat_id];
+float compute_shear(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
   int point_stress_count = 0;
-  float* point_stresses =  getSectionStress(world,beam,position,&point_stress_count);
+  float* point_stresses =  getSectionStress(model,beam,position,&point_stress_count);
   float side = sqrtf(section.A);
   float width  = side;
   float height = side;
@@ -171,17 +198,17 @@ float compute_shear(World* world,BeamElement* beam,float y,float z,float positio
   return result;
 }
 
-float compute_von_mise(World* world,BeamElement* beam,float y,float z,float position){
-  float sigma = compute_sigmaX(world,beam,y,z,position);
-  float tou = compute_shear(world,beam,y,z,position);
+float compute_von_mise(FeaModel* model,BeamElement* beam,float y,float z,float position){
+  float sigma = compute_sigmaX(model,beam,y,z,position);
+  float tou = compute_shear(model,beam,y,z,position);
 
   float result = sqrtf(sigma*sigma+3*tou*tou);
   return result;
 }
 
-Vertex* convertOutlineToVertices(World* world,BeamElement* beam,point2D* outline,int outline_count,vec3 center,vec3 forward,vec3 right,vec3 up,float pos,int* vertices_count,uint8_t stresses){
-  Section section = world->sections[beam->sec_id];
-  Material material = world->materials[beam->mat_id];
+Vertex* convertOutlineToVertices(FeaModel* model,BeamElement* beam,point2D* outline,int outline_count,vec3 center,vec3 forward,vec3 right,vec3 up,float pos,int* vertices_count,uint32_t render_flags){
+  Section section = model->sections[beam->sec_id];
+  Material material = model->materials[beam->mat_id];
   Vertex* vertices = (Vertex*)calloc(outline_count,sizeof(Vertex));
 
   Vertex vert = {0};
@@ -190,6 +217,7 @@ Vertex* convertOutlineToVertices(World* world,BeamElement* beam,point2D* outline
     vec_negate(vert.normal);
   }
   int idx = 0;
+  float sigma = 0.0;
   for(int i=0;i<outline_count;i++){
     float u = outline[i].u;
     float v = outline[i].v;
@@ -198,14 +226,19 @@ Vertex* convertOutlineToVertices(World* world,BeamElement* beam,point2D* outline
     vert.pos[2] = center[2]+u*right[2]+v*up[2];
 
     //NOTE: i assume that the u and v are the z and y???
-    float sigma = 0.0;
-    if(world->fea_solved){
-      if(stresses & SIGMA_X){
-	sigma = compute_sigmaX(world,beam,u,v,pos);
-      }else if(stresses & TOU){
-	sigma = compute_shear(world,beam,u,v,pos);
-      }else if(stresses & VON_MISE){
-	sigma = compute_von_mise(world,beam,u,v,pos);
+    if (model->fea_solved && (render_flags & (SHOW_AXIAL_STRESS | SHOW_BEND_STRESS_Y | SHOW_BEND_STRESS_Z | SHOW_SHEAR_STRESS | SHOW_VON_MISES))) {
+      sigma = 0.0f;
+
+      if (render_flags & SHOW_AXIAL_STRESS)  sigma += compute_axial_stress(model, beam, u, v, pos);
+      if (render_flags & SHOW_BEND_STRESS_Y) sigma += compute_bend_stress_y(model, beam, u, v, pos);
+      if (render_flags & SHOW_BEND_STRESS_Z) sigma += compute_bend_stress_z(model, beam, u, v, pos);
+
+      if (render_flags & SHOW_SHEAR_STRESS)  sigma = compute_shear(model, beam, u, v, pos);
+
+      if (render_flags & SHOW_VON_MISES) {
+        float s = compute_sigmaX(model, beam, u, v, pos);
+        float t = compute_shear(model, beam, u, v, pos);
+        sigma = sqrtf(s*s + 3.0f*t*t);   // actual von Mises for combined normal+shear, not a plain sum
       }
     }
     // normalize so that 0 stress = 0, max absolute stress = 1
@@ -214,7 +247,7 @@ Vertex* convertOutlineToVertices(World* world,BeamElement* beam,point2D* outline
     //t = clampf(t, 0.0f, 1.0f);
     float t = (sigma - my_sigma_min) / (my_sigma_max - my_sigma_min);
     t = clampf(t, 0.0f, 1.0f);
-    stress_to_color_sigma(sigma,&(vert.color[0]),&(vert.color[1]),&(vert.color[2]));
+    stress_to_color_sigma(sigma,&(vert.color[0]),&(vert.color[1]),&(vert.color[2]),render_flags);
     memcpy(vertices+idx,&vert,sizeof(Vertex));
     idx++;
   }
@@ -223,7 +256,7 @@ Vertex* convertOutlineToVertices(World* world,BeamElement* beam,point2D* outline
   return vertices;
 }
 
-Vertex* meshInnerRings(World* world,BeamElement* beam,Vertex** rings,int ring_size,int ring_count,int* result_count,vec3 center,float position,uint8_t stresses){
+Vertex* meshInnerRings(FeaModel* model,BeamElement* beam,Vertex** rings,int ring_size,int ring_count,int* result_count,vec3 center,float position,uint32_t render_flags){
   int count = ((ring_count-1)*(ring_size)*6)+(3*(ring_size));
   Vertex* result = (Vertex*)calloc(count,sizeof(Vertex));
 
@@ -250,28 +283,31 @@ Vertex* meshInnerRings(World* world,BeamElement* beam,Vertex** rings,int ring_si
   }
   Vertex center_vert = {0};
   glm_vec_copy(normal,center_vert.normal);
-  Section section = world->sections[beam->sec_id];
+  Section section = model->sections[beam->sec_id];
   float sigma = 0.0;
-  if(world->fea_solved){
-    if(stresses & SIGMA_X){
-      sigma = compute_sigmaX(world,beam,0.0,0.0,position);
-    }else if(stresses & TOU){
-      sigma = compute_shear(world,beam,0.0,0.0,position);
-    }else if(stresses & VON_MISE){
-      sigma = compute_von_mise(world,beam,0.0,0.0,position);
+  float u = 0.0;
+  float v = 0.0;
+  if (model->fea_solved && (render_flags & (SHOW_AXIAL_STRESS | SHOW_BEND_STRESS_Y | SHOW_BEND_STRESS_Z | SHOW_SHEAR_STRESS | SHOW_VON_MISES))) {
+    sigma = 0.0f;
+
+    if (render_flags & SHOW_AXIAL_STRESS)  sigma += compute_axial_stress(model, beam, u, v, position);
+    if (render_flags & SHOW_BEND_STRESS_Y) sigma += compute_bend_stress_y(model, beam, u, v, position);
+    if (render_flags & SHOW_BEND_STRESS_Z) sigma += compute_bend_stress_z(model, beam, u, v, position);
+
+    if (render_flags & SHOW_SHEAR_STRESS)  sigma = compute_shear(model, beam, u, v, position);
+
+    if (render_flags & SHOW_VON_MISES) {
+      float s = compute_sigmaX(model, beam, u, v, position);
+      float t = compute_shear(model, beam, u, v, position);
+      sigma = sqrtf(s*s + 3.0f*t*t);   // actual von Mises for combined normal+shear, not a plain sum
     }
-    //float t = (sigma - my_sigma_min) / (my_sigma_max - my_sigma_min);
-    //t = clampf(t, 0.0f, 1.0f);
-    //stress_to_color(t,&(center_vert.color[0]),&(center_vert.color[1]),&(center_vert.color[2]));
-    //memcpy(vertices+idx,&center_vert,sizeof(Vertex));
-    //idx++;
   }
   float abs_max = fmaxf(fabsf(my_sigma_max), fabsf(my_sigma_min));
   //float t = fabsf(sigma) / abs_max;
   // t = clampf(t, 0.0f, 1.0f);
   float t = (sigma - my_sigma_min) / (my_sigma_max - my_sigma_min);
   t = clampf(t, 0.0f, 1.0f);
-  stress_to_color_sigma(sigma,&(center_vert.color[0]),&(center_vert.color[1]),&(center_vert.color[2]));
+  stress_to_color_sigma(sigma,&(center_vert.color[0]),&(center_vert.color[1]),&(center_vert.color[2]),render_flags);
   glm_vec_copy(center,center_vert.pos);
   for(int i=0;i<(ring_size);i++){
     int next_i = (i+1)%(ring_size);
@@ -283,8 +319,8 @@ Vertex* meshInnerRings(World* world,BeamElement* beam,Vertex** rings,int ring_si
   return result;
 }
 
-Vertex* createMeshedSection(World* world,BeamElement* beam,vec3 center,vec3 forward,vec3 right,vec3 up,float position,uint8_t stresses,int num_divisions,int* vertex_count){
-  Section section = world->sections[beam->sec_id];
+Vertex* createMeshedSection(FeaModel* model,BeamElement* beam,vec3 center,vec3 forward,vec3 right,vec3 up,float position,uint32_t render_flags,int num_divisions,int* vertex_count){
+  Section section = model->sections[beam->sec_id];
   float A = section.A;
 
   point2D** outline_points = (point2D**)malloc(sizeof(point2D*)*num_divisions);
@@ -325,12 +361,12 @@ Vertex* createMeshedSection(World* world,BeamElement* beam,vec3 center,vec3 forw
   Vertex** inner_rings = (Vertex**)malloc(sizeof(Vertex*)*num_divisions);
   for(int i=0;i<num_divisions;i++){
     int count;
-    inner_rings[i] =  convertOutlineToVertices(world,beam,outline_points[i],outline_count,center,forward,right,up,position,&count,stresses);
+    inner_rings[i] =  convertOutlineToVertices(model,beam,outline_points[i],outline_count,center,forward,right,up,position,&count,render_flags);
   }
 
   //NOTE : NOW MESH THE INNER RINGS INTO ONE
   int result_count;
-  Vertex* result = meshInnerRings(world,beam,inner_rings,outline_count,num_divisions,&result_count,center,position,stresses);
+  Vertex* result = meshInnerRings(model,beam,inner_rings,outline_count,num_divisions,&result_count,center,position,render_flags);
   *vertex_count = result_count;
 
   for(int i=0;i<num_divisions;i++){

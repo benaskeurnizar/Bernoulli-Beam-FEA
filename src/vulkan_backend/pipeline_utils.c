@@ -1,5 +1,6 @@
 #include "vk_types.h"
 #include "vk_pipeline.h"
+#include "path.h"
 
 VkShaderModule createShaderModule(VkDeviceCtx* deviceCtx,const char* code,int size){
   if((uintptr_t)code % 4 !=0){
@@ -20,10 +21,19 @@ VkShaderModule createShaderModule(VkDeviceCtx* deviceCtx,const char* code,int si
 }
 
 void createTrianglePipeline(pipelineStateDescriptions* desc,VkPipelineCtx* pipelineCtx,VkDeviceCtx* deviceCtx){
+  int vsize,fsize;
+  char vert_name[] = "vert.spv";
+  char frag_name[] = "frag.spv";
+  char* vert_address =  pathJoin(SHADERS,vert_name,strlen(vert_name),&vsize);
+  char* frag_address =  pathJoin(SHADERS,frag_name,strlen(frag_name),&fsize);
+
   int vert_size = 0;
-  char* vertShaderCode = readShaderFile(&vert_size,"../shaders/vert.spv");
+  char* vertShaderCode = readShaderFile(&vert_size,vert_address);
   int frag_size = 0;
-  char* fragShaderCode = readShaderFile(&frag_size,"../shaders/frag.spv");
+  char* fragShaderCode = readShaderFile(&frag_size,frag_address);
+
+  free(vert_address);
+  free(frag_address);
   
   VkShaderModule vertShaderModule = createShaderModule(deviceCtx,vertShaderCode,vert_size);
   VkShaderModule fragShaderModule = createShaderModule(deviceCtx,fragShaderCode,frag_size);
@@ -92,10 +102,19 @@ void createTrianglePipeline(pipelineStateDescriptions* desc,VkPipelineCtx* pipel
 
 
 void createLinePipeline(pipelineStateDescriptions* desc,VkPipelineCtx* pipelineCtx,VkDeviceCtx* deviceCtx){
+  int vsize,fsize;
+  char vert_name[] = "lineVert.spv";
+  char frag_name[] = "lineFrag.spv";
+  char* vert_address =  pathJoin(SHADERS,vert_name,strlen(vert_name),&vsize);
+  char* frag_address =  pathJoin(SHADERS,frag_name,strlen(frag_name),&fsize);
+
   int vert_size = 0;
-  char* vertShaderCode = readShaderFile(&vert_size,"../shaders/lineVert.spv");
+  char* vertShaderCode = readShaderFile(&vert_size,vert_address);
   int frag_size = 0;
-  char* fragShaderCode = readShaderFile(&frag_size,"../shaders/lineFrag.spv");
+  char* fragShaderCode = readShaderFile(&frag_size,frag_address);
+
+  free(vert_address);
+  free(frag_address);
   
   VkShaderModule vertShaderModule = createShaderModule(deviceCtx,vertShaderCode,vert_size);
   VkShaderModule fragShaderModule = createShaderModule(deviceCtx,fragShaderCode,frag_size);

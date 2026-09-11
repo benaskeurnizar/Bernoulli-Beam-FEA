@@ -155,7 +155,7 @@ void rotate_vectorX(vec3 a,float theta,vec3 d){
 }
 
 
-void createResultMz(World* world,Mesh* mesh,BeamElement* beam,Grid* grid){
+/*void createResultMz(World* world,Mesh* mesh,BeamElement* beam,Grid* grid){
   vec3 center1;
   Node node1 = world->nodes[beam->node1];
   center1[0] = node1.x;center1[1] = node1.y;center1[2] = node1.z;
@@ -197,6 +197,6 @@ void createResultMz(World* world,Mesh* mesh,BeamElement* beam,Grid* grid){
     grid->vertices[idx].position[2] = current_center[2]+Mz;
     idx++;
   }
-}
+  }*/
 
 Vertex* convertOutlineVertices(World* world,BeamElement* beam,point2D* outline_points,int outline_count,float raduis,vec3 center1,vec3 up,vec3 right,float* stressValues,int stress_count,int* return_size);

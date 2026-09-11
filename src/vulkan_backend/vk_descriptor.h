@@ -7,6 +7,7 @@
 typedef struct {
   VkDescriptorSetLayout layout;
   VkDescriptorPool pool;
+  VkDescriptorPool imguiPool;
   VkDescriptorSet* sets;   // array, size MAX_FRAMES_IN_FLIGHT
 } DescriptorCtx;
 

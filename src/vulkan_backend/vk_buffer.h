@@ -5,6 +5,10 @@
 #include "vk_device.h"
 #include "vk_command.h"
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 typedef struct {
   VkBuffer vertexBuffer;
   VkDeviceMemory vertexBufferMemory;
@@ -27,3 +31,8 @@ typedef struct {
 void createMeshBuffers(MeshBuffers* meshBuffers,VkDeviceCtx* device,CommandCtx* commandCtx,Mesh* mesh);
 void createUniformBuffers(FrameUniforms* frameUniform,VkDeviceCtx* deviceCtx,CommandCtx* commandCtx,VkDeviceSize bufferSize);
 void createLineBuffer(LineBuffer* lineBuffer,VkDeviceCtx* deviceCtx,CommandCtx* commandCtx,Grid* grid);
+void createDiagramBuffer(LineBuffer* lineBuffer,VkDeviceCtx* deviceCtx,CommandCtx* commandCtx,Diagram* diagram);
+
+#ifdef __cplusplus
+}
+#endif

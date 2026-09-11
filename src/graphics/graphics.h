@@ -27,6 +27,31 @@
 #define M_PI       3.14159265358979323846
 #endif
 
+typedef enum {
+  // Deformed Shape
+  SHOW_DEFORM_X       = 1 << 0,
+  SHOW_DEFORM_Y       = 1 << 1,
+  SHOW_DEFORM_Z       = 1 << 2,
+  SHOW_ROT_X          = 1 << 3,
+  SHOW_ROT_Y          = 1 << 4,
+  SHOW_ROT_Z          = 1 << 5,
+
+  // Stresses
+  SHOW_AXIAL_STRESS   = 1 << 6,
+  SHOW_BEND_STRESS_Y  = 1 << 7,
+  SHOW_BEND_STRESS_Z  = 1 << 8,
+  SHOW_SHEAR_STRESS   = 1 << 9,
+  SHOW_VON_MISES      = 1 << 10,
+
+  // Diagrams
+  SHOW_AXIAL_FORCE    = 1 << 11,
+  SHOW_SHEAR_VY       = 1 << 12,
+  SHOW_SHEAR_VZ       = 1 << 13,
+  SHOW_MOMENT_MY      = 1 << 14,
+  SHOW_MOMENT_MZ      = 1 << 15,
+  SHOW_TORQUE_MX      = 1 << 16,
+} RenderFlags;
+
 typedef struct Input {
   // Button/key state
   uint32_t keys;
@@ -82,6 +107,8 @@ typedef struct {
   uint32_t* indices;
   uint32_t indexCount;
   mat4 model;
+
+  int updated;
 } Mesh;
 
 typedef struct{
@@ -110,21 +137,22 @@ typedef struct {
   int update_beam_buffers;
   int new_grid;
 
-  Material* materials;
-  int num_materials;
-  Section* sections;
-  int num_sections;
-  Node* nodes;
-  int num_nodes;
-  Load* forces;
-  int num_forces;
-  Fix* fixes;
-  int num_fixes;
-  BeamElement* beams;//TODO: this is a dummy starting example,will be automated
-  int num_beam_elements;
-
-  int fea_solved;
+  uint32_t render_flags;
 } World;
+
+typedef enum {
+  DIAGRAM_N,
+  DIAGRAM_VY,
+  DIAGRAM_VZ,
+  DIAGRAM_T,
+  DIAGRAM_MY,
+  DIAGRAM_MZ
+} DIAGRAM_TYPE;
+
+typedef struct {
+  LineVertex *vertices;
+  uint32_t vertexCount;
+} Diagram;
 
 VkVertexInputBindingDescription getBindingDescription();
 void getAttributeDescriptions(VkVertexInputAttributeDescription* out);

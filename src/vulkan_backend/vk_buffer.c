@@ -157,6 +157,26 @@ void createLineBuffer(LineBuffer* lineBuffer,VkDeviceCtx* deviceCtx,CommandCtx* 
   vkFreeMemory(deviceCtx->device,stagingBufferMemory,NULL);
 }
 
+void createDiagramBuffer(LineBuffer* lineBuffer,VkDeviceCtx* deviceCtx,CommandCtx* commandCtx,Diagram* diagram){
+  VkDeviceSize bufferSize = sizeof(diagram->vertices[0])*diagram->vertexCount;
+  VkBuffer stagingBuffer = {0};
+  VkDeviceMemory stagingBufferMemory = {0};
+  createBuffer(deviceCtx,bufferSize,VK_BUFFER_USAGE_TRANSFER_SRC_BIT,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,&stagingBuffer,&stagingBufferMemory);
+
+  //NOTE: Filling the vertex buffer
+  // mapping the buffer memory into CPU accessible memory with vkMapMemory.
+  void* data;
+  vkMapMemory(deviceCtx->device, stagingBufferMemory, 0, bufferSize, 0, &data);
+  memcpy(data,diagram->vertices,(size_t)bufferSize);
+  vkUnmapMemory(deviceCtx->device, stagingBufferMemory);
+
+  createBuffer(deviceCtx,bufferSize,VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,&(lineBuffer->vertexBuffer),&(lineBuffer->vertexBufferMemory));
+  // we can now call copy Buffer from the create Vertex Buffer function to move the vertex data to the device local buffer
+  copyBuffer(commandCtx,deviceCtx,stagingBuffer,lineBuffer->vertexBuffer,bufferSize);
+  vkDestroyBuffer(deviceCtx->device,stagingBuffer,NULL);
+  vkFreeMemory(deviceCtx->device,stagingBufferMemory,NULL);
+}
+
 void cleanMeshBuffers(MeshBuffers* meshBuffers,VkDeviceCtx* deviceCtx,CommandCtx* commandCtx){
   vkDestroyBuffer(deviceCtx->device, meshBuffers->vertexBuffer, NULL);
   vkFreeMemory(deviceCtx->device, meshBuffers->vertexBufferMemory, NULL);

@@ -3,4 +3,4 @@
 #include "fea_types.h"
 #include "beam_solver.h"
 
-void initFea(World* world);
+void initFea(FeaModel* model);

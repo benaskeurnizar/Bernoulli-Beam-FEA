@@ -6,6 +6,6 @@
 #include "../vulkan_backend/vk_swapChain.h"
 #include "../platform/window.h"
 
-void drawFrame(Renderer* renderer,Window* window,World* world);
+void drawFrame(Renderer* renderer,Window* window,World* world,FeaModel* model);
 
 void recreateSwapChain(VkSwapchainCtx* swapChainCtx,VkPipelineCtx* pipelineCtx,VkDeviceCtx* deviceCtx,Window* window,VkSurfaceKHR surface);
