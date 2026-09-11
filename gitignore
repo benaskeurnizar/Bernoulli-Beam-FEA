@@ -1,21 +1,36 @@
-# Editor backups
+# Build output
+build/
+
+# Visual Studio / MSVC
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.suo
+*.user
+
+# Executables / libraries
+*.exe
+*.dll
+*.lib
+
+# Temporary/editor files
 *~
 *.swp
 *.swo
 
-# Build output
-build/
-*.pdb
-*.ilk
-*.exe
-*.exp
-*.lib
+# Debug / release output
+Debug/
+Release/
+x64/
+x86/
 
-# OS cruft
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# OS/editor junk
 .DS_Store
 Thumbs.db
-
-# IDE
-.vs/
-.vscode/
-*.user
