@@ -1,6 +1,0 @@
-#pragma once
-
-#include "graphics.h"
-#include "../vulkan_backend/vk_buffer.h"
-#include "../fea/fea_types.h"
-#include "../fea/beam_result.h"

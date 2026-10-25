@@ -1,6 +1,0 @@
-#pragma once
-
-typedef struct {
-  VkCommandPool pool;
-  VkCommandBuffer* buffers;   // array, size MAX_FRAMES_IN_FLIGHT
-} CommandCtx;
