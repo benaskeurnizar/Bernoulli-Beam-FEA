@@ -1,9 +1,0 @@
-#pragma once
-
-#define MAX_PATH 1024
-
-typedef struct{
-  char root[MAX_PATH];
-  char assets[PATH_MAX];
-  char shaders[PATH_MAX];
-}AppPaths;
