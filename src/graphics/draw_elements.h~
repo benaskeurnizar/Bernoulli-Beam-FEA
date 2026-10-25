@@ -1,0 +1,22 @@
+#pragma once
+
+#include "graphics.h"
+//#include "../vulkan_backend/vk_buffer.h"
+#include "../fea/beam_result.h"
+
+typedef enum{
+  NONE = 0,
+  SIGMA_X = 1 << 0,
+  TOU = 1 << 1,
+  VON_MISE = 1 << 2
+}STRESS_TYPE;
+
+typedef enum{
+  NONE = 0,
+  DIS_X = 1 << 0,
+  DIS_Y = 1 << 1,
+  DIS_Z = 1 << 2,
+  ROT_X = 1 << 3,
+  ROT_Y = 1 << 4,
+  ROT_Z = 1 << 5
+}DISPLACEMENT_TYPE;

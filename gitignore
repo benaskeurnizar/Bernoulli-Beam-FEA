@@ -25,9 +25,11 @@ Release/
 x64/
 x86/
 
-.txt
-
-.xopp
+*.txt
+!assets/sample.txt
+*.xopp
+\#*#
+.#*
 
 # CMake
 CMakeFiles/
