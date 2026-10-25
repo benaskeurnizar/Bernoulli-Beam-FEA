@@ -12,6 +12,7 @@
 #include "draw_elements.h"
 #include "fea_types.h"
 #include "draw_lines.h"
+#include "beam_result.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

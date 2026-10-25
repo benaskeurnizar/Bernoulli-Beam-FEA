@@ -25,6 +25,7 @@ void createSurface(Renderer* renderer,Window* window){
 void initRenderer(Renderer* renderer,Window* window,World* world){
   renderer->currentFrame = 0;
   renderer->framebufferResized = 0;
+  renderer->show_diagram = 0;
   createInstanceCtx(&(renderer->instanceCtx));
   createSurface(renderer,window);
   createDeviceCtx(&(renderer->instanceCtx),&(renderer->deviceCtx),renderer->surface);

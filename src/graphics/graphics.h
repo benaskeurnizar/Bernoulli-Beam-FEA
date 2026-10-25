@@ -138,6 +138,8 @@ typedef struct {
   int new_grid;
 
   uint32_t render_flags;
+
+  uint8_t inspect_active;
 } World;
 
 typedef enum {
@@ -153,6 +155,10 @@ typedef struct {
   LineVertex *vertices;
   uint32_t vertexCount;
 } Diagram;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 VkVertexInputBindingDescription getBindingDescription();
 void getAttributeDescriptions(VkVertexInputAttributeDescription* out);
@@ -170,4 +176,8 @@ void getLineAttributeDescriptions(VkVertexInputAttributeDescription* out);
 
 VkVertexInputBindingDescription getLineBindingDescription();
 
+float rayInspection(World* world,int mouseX,int mouseY,vec3 node1,vec3 node2,float* dst);
 
+#ifdef __cplusplus
+}
+#endif

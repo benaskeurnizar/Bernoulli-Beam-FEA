@@ -1,5 +1,4 @@
 #include "graphics.h"
-#include "load_obj.h"
 #include "../fea/beam.h"
 #include "draw_elements.h"
 

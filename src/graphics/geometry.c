@@ -155,48 +155,74 @@ void rotate_vectorX(vec3 a,float theta,vec3 d){
 }
 
 
-/*void createResultMz(World* world,Mesh* mesh,BeamElement* beam,Grid* grid){
-  vec3 center1;
-  Node node1 = world->nodes[beam->node1];
-  center1[0] = node1.x;center1[1] = node1.y;center1[2] = node1.z;
-
-  vec3 center2;
-  Node node2 = world->nodes[beam->node2];
-  center2[0] = node2.x;center2[1] = node2.y;center2[2] = node2.z;
-
-  //NOTE: GET AXIS
-  vec3 worldUP;
-  worldUP[0] = 0.0;worldUP[1] = 0.0;worldUP[2] = 1.0;
-  vec3 forward;
-  glm_vec_sub(center2,center1,forward);
-  glm_vec_normalize(forward);
-  int num_divisions = 500;
-  float step = beam->Le/num_divisions;
-
-  int num_lines = num_divisions+1;
-
-  grid->vertexCount = num_lines*2;
-  grid->vertices = (LineVertex*)calloc(grid->vertexCount,sizeof(LineVertex));
-
-  float E = world->materials[beam->mat_id].E;
-  float Iz = world->sections[beam->sec_id].Iz;
-  int idx = 0;
-  for(int i=0;i<num_lines;i++){
-    vec3 temp,current_center;
-    float Delta = i*step;
-    glm_vec_scale(forward,Delta,temp);
-    glm_vec_add(center1,temp,current_center);
-    float Mz = get_Mz(beam,(i*step)/beam->Le,E,Iz);
-    Mz*=0.0005;
-    grid->vertices[idx].position[0] = current_center[0];
-    grid->vertices[idx].position[1] = current_center[1];
-    grid->vertices[idx].position[2] = current_center[2];
-    idx++;
-    grid->vertices[idx].position[0] = current_center[0];
-    grid->vertices[idx].position[1] = current_center[1];
-    grid->vertices[idx].position[2] = current_center[2]+Mz;
-    idx++;
-  }
-  }*/
-
 Vertex* convertOutlineVertices(World* world,BeamElement* beam,point2D* outline_points,int outline_count,float raduis,vec3 center1,vec3 up,vec3 right,float* stressValues,int stress_count,int* return_size);
+
+
+float rayInspection(World* world,int mouseX,int mouseY,vec3 node1,vec3 node2,float* dst){
+  float ndcx = ((float)mouseX/world->width)*2.0 - 1.0;
+  //float ndcy = 1.0 - ((float)mouseY/world->height)*2.0;
+  float ndcy = ((float)mouseY/world->height)*2.0 - 1.0;
+  vec4 ray_origin = {ndcx,ndcy,0.0,1.0};
+  vec4 ray_far = {ndcx,ndcy,1.0,1.0};
+  vec4 pa,pb;
+  mat4 proj_view,inv_proj_view;
+  glm_mat4_mul(world->proj,world->camera.view,proj_view);
+  glm_mat4_inv(proj_view,inv_proj_view);
+  
+  glm_mat4_mulv(inv_proj_view,ray_origin,pa);glm_vec_scale(pa,1/pa[3],pa);
+  glm_mat4_mulv(inv_proj_view,ray_far,pb);glm_vec_scale(pb,1/pb[3],pb);
+
+  vec3 r0 = {pa[0], pa[1], pa[2]};
+  vec3 rf = {pb[0], pb[1], pb[2]};
+  
+  vec3 ray_dir;
+  glm_vec_sub(rf,r0,ray_dir);
+  glm_vec_normalize(ray_dir);
+
+  vec3 sd;
+  glm_vec_sub(node2,node1,sd);
+  vec3 sdn;
+  glm_vec_copy(sd,sdn);
+  glm_vec_normalize(sdn);
+  
+  vec3 RdN1;
+  glm_vec_sub(r0,node1,RdN1);
+
+  float a1 = ray_dir[0]*ray_dir[0] + ray_dir[1]*ray_dir[1] + ray_dir[2]*ray_dir[2];
+  float b1 = -glm_vec_dot(ray_dir,sd);
+  float c1 = glm_vec_dot(ray_dir,RdN1);
+
+  float a2 = -b1;
+  float b2 = -(sd[0]*sd[0] + sd[1]*sd[1] + sd[2]*sd[2]);
+  float c2 = glm_vec_dot(sd,RdN1);
+
+  float denom = (b2 - a2*b1/a1);
+  if(fabsf(denom) < 1e-6f || fabsf(a1) < 1e-6f){
+    *dst = 1e9;
+    return 0.0;
+  }
+  
+  float s = ((a2*c1/a1 - c2))/(b2 - a2*b1/a1);
+  if(s>1.0){
+    s = 1.0;
+  }
+  if(s<0.0){
+    s = 0.0;
+  }
+  float t = -(b1*s + c1)/a1;
+
+  t = fmaxf(t, 0.0f);
+  
+  vec3 P,S,temp1,temp2;
+  glm_vec_scale(ray_dir,t,temp1);
+  glm_vec_add(r0,temp1,P);
+
+  glm_vec_scale(sd,s,temp2);
+  glm_vec_add(node1,temp2,S);
+  
+  vec3 distance;
+  glm_vec_sub(P,S,distance);
+  *dst = sqrtf(distance[0]*distance[0] + distance[1]*distance[1] + distance[2]*distance[2]);
+
+  return s;
+}

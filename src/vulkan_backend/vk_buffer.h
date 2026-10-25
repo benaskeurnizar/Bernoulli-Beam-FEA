@@ -23,8 +23,8 @@ typedef struct {
 } FrameUniforms;   // per-frame-in-flight data
 
 typedef struct {
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
+  VkBuffer vertexBuffer;
+  VkDeviceMemory vertexBufferMemory;
 } LineBuffer;
 
 

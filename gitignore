@@ -25,6 +25,10 @@ Release/
 x64/
 x86/
 
+.txt
+
+.xopp
+
 # CMake
 CMakeFiles/
 CMakeCache.txt

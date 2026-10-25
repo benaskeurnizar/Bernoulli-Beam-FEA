@@ -4,6 +4,10 @@
 #include "graphics.h"
 #include "fea_globals.h"
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 float get_v_displacement(BeamElement* bar,float position,float v1,float theta_z1,float v2,float theta_z2);
 
 float get_z_displacement(BeamElement* bar,float position,float v1,float theta_z1,float v2,float theta_z2);
@@ -22,3 +26,7 @@ float get_z_rotation(BeamElement* bar,float position,float v1,float theta_z1,flo
 float get_y_rotation(BeamElement* bar,float position,float w1,float theta_y1,float w2,float theta_y2);
 
 float calculateDiagramValue(FeaModel* model,BeamElement* beam,float position,DIAGRAM_TYPE type);
+
+#ifdef __cplusplus
+}
+#endif

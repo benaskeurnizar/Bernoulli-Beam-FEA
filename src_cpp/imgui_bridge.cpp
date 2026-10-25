@@ -5,6 +5,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 
+
 static void check_vk_result(VkResult err)
 {
   if (err == VK_SUCCESS)
@@ -329,6 +330,7 @@ void updateDiagram(World* world,Renderer* renderer,FeaModel* model,DIAGRAM_TYPE 
   }
 }
 
+void inspectionFunction(World* world,FeaModel* model);
 
 void imgui_draw(World* world,Renderer* renderer,FeaModel* model)
 {
@@ -511,9 +513,30 @@ void imgui_draw(World* world,Renderer* renderer,FeaModel* model)
 	  ImGui::EndMenu();
         }
 
+      if(model->fea_solved){
+	ImGui::SameLine(0.0f, 18.0f);
+	ImGui::Separator();
+	ImGui::SameLine(0.0f, 18.0f);
 
+	bool inspectWasActive = world->inspect_active;
+
+	if (inspectWasActive)
+	  ImGui::PushStyleColor(
+				ImGuiCol_Button,
+				ImVec4(0.06f, 0.62f, 0.20f, 1.0f)
+				);
+
+	if (ImGui::Button("Inspect"))
+	  world->inspect_active = !world->inspect_active;
+
+	if (inspectWasActive)
+	  ImGui::PopStyleColor();
+      }
       ImGui::EndMainMenuBar();
     }
+
+  inspectionFunction(world,model);
+    
   if(world->render_flags != old_flags){
     for(int i=0;i<model->num_beam_elements;i++){
       createElementVertices(model,&(model->beams[i]),&(world->meshes[i]),world->render_flags);
@@ -521,7 +544,83 @@ void imgui_draw(World* world,Renderer* renderer,FeaModel* model)
   }
 }
 
-
+float clampf(float v, float lo, float hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+ 
+void inspectionFunction(World* world,FeaModel* model){
+  if(world->inspect_active) {
+    // do your raycast every frame here
+    // store result in world->inspect_result
+    //TODO: THE RAY TRACING LOGIC SHOULD BE HERE
+    //NOTE: for now,just inspect the z displacement values
+    float min_dis = 1e9;
+    int element = -1;
+    float xi = 0.0;
+    for(int i=0;i<model->num_beam_elements;i++){
+      float distance = 0.0;
+      vec3 node1 = {model->nodes[model->beams[i].node1].x,model->nodes[model->beams[i].node1].y,model->nodes[model->beams[i].node1].z};
+      vec3 node2 = {model->nodes[model->beams[i].node2].x,model->nodes[model->beams[i].node2].y,model->nodes[model->beams[i].node2].z};
+      float x = rayInspection(world,ImGui::GetIO().MousePos.x,ImGui::GetIO().MousePos.y,node1,node2,&distance);
+      if(distance < min_dis){
+	min_dis = distance;
+	element = i;
+	xi = x;
+      }
+    }
+    if(element == -1){
+      return;
+    }
+    xi = clampf(xi,0.0,1.0);
+    float threshold = sqrtf(model->sections[model->beams[element].sec_id].A) * 0.75f;
+    if(min_dis <= threshold && (element != -1)) {
+      BeamElement* beam = &(model->beams[element]);
+      float dz = get_z_displacement(beam,xi,beam->local_dis[2],beam->local_dis[4],beam->local_dis[8],beam->local_dis[10]);
+      //ImGui::SetNextWindowPos(
+      //			      ImVec2(ImGui::GetIO().MousePos.x + 15,
+      //				     ImGui::GetIO().MousePos.y + 15)
+      //			      );
+      ImGui::SetNextWindowPos(
+			      ImVec2(world->width-250,
+				     100)
+			      );
+      ImGui::SetNextWindowSize(ImVec2(220, 0)); // 0 = auto height
+      ImGui::SetNextWindowBgAlpha(0.85f);
+      ImGui::Begin("##inspect", NULL,
+		   ImGuiWindowFlags_NoTitleBar |
+		   ImGuiWindowFlags_NoResize |
+		   ImGuiWindowFlags_NoMove |
+		   ImGuiWindowFlags_NoSavedSettings |
+		   ImGuiWindowFlags_NoFocusOnAppearing |
+		   ImGuiWindowFlags_NoNav
+		   );
+        
+      ImGui::TextColored(ImVec4(0.4f,0.8f,1.0f,1.0f), "Element %d  xi=%.3f",
+			 element,xi);
+      ImGui::Separator();
+      ImGui::Text("DZ   = %.8f m",dz);
+      ImGui::End();
+    }else{
+      ImGui::SetNextWindowPos(
+			      ImVec2(world->width-250,
+				     100)
+			      );
+      ImGui::SetNextWindowSize(ImVec2(220, 0)); // 0 = auto height
+      ImGui::SetNextWindowBgAlpha(0.85f);
+      ImGui::Begin("##inspect", NULL,
+		   ImGuiWindowFlags_NoTitleBar |
+		   ImGuiWindowFlags_NoResize |
+		   ImGuiWindowFlags_NoMove |
+		   ImGuiWindowFlags_NoSavedSettings |
+		   ImGuiWindowFlags_NoFocusOnAppearing |
+		   ImGuiWindowFlags_NoNav
+		   );
+        
+      ImGui::TextColored(ImVec4(0.4f,0.8f,1.0f,1.0f), "Out of Range");
+      ImGui::End();
+    }
+  }
+}
 
 void imgui_render(VkCommandBuffer command_buffer)
 {
